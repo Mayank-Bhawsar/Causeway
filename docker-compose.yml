@@ -48,5 +48,24 @@ services:
     ports:
       - "8428:8428"
 
+  causeway-api:
+    build: .
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      KAFKA_BOOTSTRAP: redpanda:9092
+      VM_URL: http://victoria-metrics:8428
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app/api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+        
+
 volumes:
   pgdata:
