@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: causeway
+      POSTGRES_PASSWORD: causeway
+      POSTGRES_DB: causeway
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/migrations/0001_init.sql:/docker-entrypoint-initdb.d/0001_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U causeway -d causeway"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.4
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - 512M
+      - --reserve-memory
+      - 0M
+      - --kafka-addr
+      - internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertised-kafka-addr
+      - internal://redpanda:19092,external://redpanda:19092
+    ports:
+      - "19092:19092"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy'"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+  
+  victoria-metrics:
+    image: victoriametrics/victoria-metrics:v1.106.1
+    command:
+      - -retentionPeriod=14d
+      - -httpListenAddr=:8428
+    ports:
+      - "8428:8428"
+
+volumes:
+  pgdata:
