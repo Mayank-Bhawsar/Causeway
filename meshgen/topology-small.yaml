@@ -1,0 +1,25 @@
+services:
+  frontend:
+    downstreams: [cart-svc:8080, checkout-svc:8080, catalog-svc:8080, search-svc:8080]
+  cart-svc:
+    downstreams: [inventory-svc:8080, pricing-svc:8080]
+  checkout-svc:
+    downstreams: [payment-svc:8080, order-svc:8080, inventory-svc:8080]
+  catalog-svc:
+    downstreams: [inventory-svc:8080, pricing-svc:8080]
+  search-svc:
+    downstreams: [catalog-svc:8080]
+  payment-svc:
+    downstreams: []
+  order-svc:
+    downstreams: [notification-svc:8080]
+  inventory-svc:
+    downstreams: []
+  pricing-svc:
+    downstreams: []
+  notification-svc:
+    downstreams: []
+  auth-svc:
+    downstreams: []
+  config-svc:
+    downstreams: []
