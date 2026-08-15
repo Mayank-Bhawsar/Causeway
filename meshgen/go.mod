@@ -1,3 +1,3 @@
 module github.com/Mayank-Bhawsar/Causeway/meshgen
 
-go 1.22.10
+go 1.22
