@@ -11,6 +11,7 @@ import (
         "time"
 
         "github.com/Mayank-Bhawsar/Causeway/meshgen/fault"
+		"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var (
@@ -43,11 +44,22 @@ func main() {
                 w.WriteHeader(http.StatusOK)
                 _, _ = w.Write([]byte("ok"))
         })
+		
+
         mux.HandleFunc("/metrics", metricsHandler)
         mux.HandleFunc("/admin/fault", fault.Handler)
         mux.HandleFunc("/", handleRequest)
 
         log.Printf("%s listening on %s downstreams=%v", serviceName, listenAddr, downstreams)
+		ctx := context.Background()
+		shutdown, err := setupOTel(ctx, serviceName)
+		if err != nil {
+			log.Printf("otel disabled: %v", err)
+		}
+		else {
+			defer func() { _ = shutdown(context.Background()) }()
+		}
+		handler := otelhttp.NewHandler(mux, serviceName)
         log.Fatal(http.ListenAndServe(listenAddr, mux))
 }
 
@@ -59,7 +71,10 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
         reqCount.Add(1)
 
         // call downstreams (best-effort for now)
-        client := &http.Client{Timeout: 2 * time.Second}
+        client := &http.Client{
+			Timeout:   2 * time.Second,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
+		}
         results := map[string]int{}
         for _, d := range downstreams {
                 url := d
