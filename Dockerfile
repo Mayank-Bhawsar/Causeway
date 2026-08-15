@@ -12,6 +12,7 @@ COPY evidence ./evidence
 COPY narrator ./narrator
 COPY actions ./actions
 COPY bench ./bench
+COPY worker ./worker
 
 RUN pip install --no-cache-dir -e .
 
