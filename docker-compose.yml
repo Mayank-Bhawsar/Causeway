@@ -80,85 +80,122 @@ services:
     image: causeway-meshgen:local
     environment:
       SERVICE_NAME: frontend
-      DOWNSTREAMS: "cart-svc:8080, checkout-svc:8080, catalog-svc:8080, search-svc:8080"
+      DOWNSTREAMS: "cart-svc:8080,checkout-svc:8080,catalog-svc:8080,search-svc:8080"        
       LISTEN_ADDR: ":8080"
     ports:
-      - "8080:8080"
-    depends_on: [cart-svc, checkout-svc, catalog-svc, search-svc]
-
+       - "8080:8080"
+    depends_on:
+      cart-svc:
+        condition: service_started
+      checkout-svc:
+        condition: service_started
+      catalog-svc:
+        condition: service_started
+      search-svc:
+        condition: service_started
   cart-svc:
-  image: causeway-meshgen:local
-  environment:
-    SERVICE_NAME: cart-svc
-    DOWNSTREAMS: "inventory-svc:8080,pricing-svc:8080"
-    LISTEN_ADDR: ":8080"
-  depends_on: [inventory-svc, pricing-svc]
-checkout-svc:
-  image: causeway-meshgen:local
-  environment:
-    SERVICE_NAME: checkout-svc
-    DOWNSTREAMS: "payment-svc:8080,order-svc:8080,inventory-svc:8080"
-    LISTEN_ADDR: ":8080"
-  depends_on: [payment-svc, order-svc, inventory-svc]
-catalog-svc:
-  image: causeway-meshgen:local
-  environment:
-    SERVICE_NAME: catalog-svc
-    DOWNSTREAMS: "inventory-svc:8080,pricing-svc:8080"
-    LISTEN_ADDR: ":8080"
-  depends_on: [inventory-svc, pricing-svc]
-search-svc:
-  image: causeway-meshgen:local
-  environment:
-    SERVICE_NAME: search-svc
-    DOWNSTREAMS: "catalog-svc:8080"
-    LISTEN_ADDR: ":8080"
-  depends_on: [catalog-svc]
-payment-svc:
-  image: causeway-meshgen:local
-  environment:
-    SERVICE_NAME: payment-svc
-    DOWNSTREAMS: ""
-    LISTEN_ADDR: ":8080"
-  ports:
-    - "8081:8080"
-order-svc:
-  image: causeway-meshgen:local
-  environment:
-    SERVICE_NAME: order-svc
-    DOWNSTREAMS: "notification-svc:8080"
-    LISTEN_ADDR: ":8080"
-  depends_on: [notification-svc]
-inventory-svc:
-  image: causeway-meshgen:local
-  environment:
-    SERVICE_NAME: inventory-svc
-    DOWNSTREAMS: ""
-    LISTEN_ADDR: ":8080"
-pricing-svc:
-  image: causeway-meshgen:local
-  environment:
-    SERVICE_NAME: pricing-svc
-    DOWNSTREAMS: ""
-    LISTEN_ADDR: ":8080"
-notification-svc:
-  image: causeway-meshgen:local
-  environment:
-    SERVICE_NAME: notification-svc
-    DOWNSTREAMS: ""
-    LISTEN_ADDR: ":8080"
-auth-svc:
-  image: causeway-meshgen:local
-  environment:
-    SERVICE_NAME: auth-svc
-    DOWNSTREAMS: ""
-    LISTEN_ADDR: ":8080"
-config-svc:
-  image: causeway-meshgen:local
-  environment:
-    SERVICE_NAME: config-svc
-    DOWNSTREAMS: ""
-    LISTEN_ADDR: ":8080"
+    image: causeway-meshgen:local
+    environment:
+      SERVICE_NAME: cart-svc
+      DOWNSTREAMS: "inventory-svc:8080,pricing-svc:8080"
+      LISTEN_ADDR: ":8080"
+    depends_on:
+      inventory-svc:
+        condition: service_started
+      pricing-svc:
+        condition: service_started
+
+  checkout-svc:
+    image: causeway-meshgen:local
+    environment:
+      SERVICE_NAME: checkout-svc
+      DOWNSTREAMS: "payment-svc:8080,order-svc:8080,inventory-svc:8080"
+      LISTEN_ADDR: ":8080"
+    depends_on:
+      payment-svc:
+        condition: service_started
+      order-svc:
+        condition: service_started
+      inventory-svc:
+        condition: service_started
+
+  catalog-svc:
+    image: causeway-meshgen:local
+    environment:
+      SERVICE_NAME: catalog-svc
+      DOWNSTREAMS: "inventory-svc:8080,pricing-svc:8080"
+      LISTEN_ADDR: ":8080"
+    depends_on:
+      inventory-svc:
+        condition: service_started
+      pricing-svc:
+        condition: service_started
+
+  search-svc:
+    image: causeway-meshgen:local
+    environment:
+      SERVICE_NAME: search-svc
+      DOWNSTREAMS: "catalog-svc:8080"
+      LISTEN_ADDR: ":8080"
+    depends_on:
+      catalog-svc:
+        condition: service_started
+
+  payment-svc:
+    image: causeway-meshgen:local
+    environment:
+      SERVICE_NAME: payment-svc
+      DOWNSTREAMS: ""
+      LISTEN_ADDR: ":8080"
+    ports:
+      - "8081:8080"
+
+  order-svc:
+    image: causeway-meshgen:local
+    environment:
+      SERVICE_NAME: order-svc
+      DOWNSTREAMS: "notification-svc:8080"
+      LISTEN_ADDR: ":8080"
+    depends_on:
+      notification-svc:
+        condition: service_started
+
+  inventory-svc:
+    image: causeway-meshgen:local
+    environment:
+      SERVICE_NAME: inventory-svc
+      DOWNSTREAMS: ""
+      LISTEN_ADDR: ":8080"
+
+  pricing-svc:
+    image: causeway-meshgen:local
+    environment:
+      SERVICE_NAME: pricing-svc
+      DOWNSTREAMS: ""
+      LISTEN_ADDR: ":8080"
+
+
+  notification-svc:
+    image: causeway-meshgen:local
+    environment:
+      SERVICE_NAME: notification-svc
+      DOWNSTREAMS: ""
+      LISTEN_ADDR: ":8080"
+
+  auth-svc:
+    image: causeway-meshgen:local
+    environment:
+      SERVICE_NAME: auth-svc
+      DOWNSTREAMS: ""
+      LISTEN_ADDR: ":8080"
+
+  config-svc:
+    image: causeway-meshgen:local
+    environment:
+      SERVICE_NAME: config-svc
+      DOWNSTREAMS: ""
+      LISTEN_ADDR: ":8080"
+
 
 volumes:
   pgdata:
