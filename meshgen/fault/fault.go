@@ -14,6 +14,7 @@ type Kind string
 const (
 	KindLatency Kind = "latency"
 	KindError   Kind = "error"
+	KindCPUBurn Kind = "cpu_burn"
 
 )
 
@@ -22,6 +23,7 @@ type Spec struct {
 	Duration time.Duration `json:"-"`
 	DelayMS  int           `json:"delay_ms"`
 	Status   int           `json:"status"`
+	CPUBurnMS  int         `json:"cpu_burn_ms"`
 	// raw duration string from JSON
 	DurationRaw string `json:"duration"`
 }
@@ -66,6 +68,16 @@ func MaybeInject(ctx context.Context) error {
                         code = 503
                 }
                 return errors.New("injected fault: error")
+
+		case KindCPUBurn:
+			deadline := time.Now().Add(time.Duration(spec.CPUBurnMS) * time.Millisecond)
+			for time.Now().Before(deadline) {
+				select {
+					case <-ctx.Done():
+						return ctx.Err()
+					default:
+				}
+			}
         }
         return nil
 }
