@@ -51,13 +51,11 @@ func main() {
         mux.HandleFunc("/admin/fault", fault.Handler)
         mux.HandleFunc("/", handleRequest)
 
-        log.Printf("%s listening on %s downstreams=%v", serviceName, listenAddr, downstreams)
 		ctx := context.Background()
 		shutdown, err := setupOTel(ctx, serviceName)
 		if err != nil {
 			log.Printf("otel disabled: %v", err)
-		}
-		else {
+		} else {
 			defer func() { _ = shutdown(context.Background()) }()
 		}
 		handler := otelhttp.NewHandler(mux, serviceName)
