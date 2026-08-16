@@ -1,6 +1,7 @@
 package main
 
 import (
+	    "context"
         "encoding/json"
         "fmt"
         "log"
@@ -60,7 +61,8 @@ func main() {
 			defer func() { _ = shutdown(context.Background()) }()
 		}
 		handler := otelhttp.NewHandler(mux, serviceName)
-        log.Fatal(http.ListenAndServe(listenAddr, mux))
+		log.Printf("%s listening on %s downstreams=%v", serviceName, listenAddr, downstreams)
+        log.Fatal(http.ListenAndServe(listenAddr, handler))
 }
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {

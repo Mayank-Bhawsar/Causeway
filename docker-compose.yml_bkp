@@ -80,11 +80,10 @@ services:
     image: causeway-meshgen:local
     environment:
       SERVICE_NAME: frontend
-      DOWNSTREAMS: "cart-svc:8080,checkout-svc:8080,catalog-svc:8080,search-svc:8080"
+      DOWNSTREAMS: "cart-svc:8080,checkout-svc:8080,catalog-svc:8080,search-svc:8080"        
       LISTEN_ADDR: ":8080"
-      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
     ports:
-      - "8080:8080"
+       - "8080:8080"
     depends_on:
       cart-svc:
         condition: service_started
@@ -94,22 +93,16 @@ services:
         condition: service_started
       search-svc:
         condition: service_started
-      otel-collector:
-        condition: service_started
-
   cart-svc:
     image: causeway-meshgen:local
     environment:
       SERVICE_NAME: cart-svc
       DOWNSTREAMS: "inventory-svc:8080,pricing-svc:8080"
       LISTEN_ADDR: ":8080"
-      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
     depends_on:
       inventory-svc:
         condition: service_started
       pricing-svc:
-        condition: service_started
-      otel-collector:
         condition: service_started
 
   checkout-svc:
@@ -118,15 +111,12 @@ services:
       SERVICE_NAME: checkout-svc
       DOWNSTREAMS: "payment-svc:8080,order-svc:8080,inventory-svc:8080"
       LISTEN_ADDR: ":8080"
-      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
     depends_on:
       payment-svc:
         condition: service_started
       order-svc:
         condition: service_started
       inventory-svc:
-        condition: service_started
-      otel-collector:
         condition: service_started
 
   catalog-svc:
@@ -135,13 +125,10 @@ services:
       SERVICE_NAME: catalog-svc
       DOWNSTREAMS: "inventory-svc:8080,pricing-svc:8080"
       LISTEN_ADDR: ":8080"
-      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
     depends_on:
       inventory-svc:
         condition: service_started
       pricing-svc:
-        condition: service_started
-      otel-collector:
         condition: service_started
 
   search-svc:
@@ -150,11 +137,8 @@ services:
       SERVICE_NAME: search-svc
       DOWNSTREAMS: "catalog-svc:8080"
       LISTEN_ADDR: ":8080"
-      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
     depends_on:
       catalog-svc:
-        condition: service_started
-      otel-collector:
         condition: service_started
 
   payment-svc:
@@ -163,12 +147,8 @@ services:
       SERVICE_NAME: payment-svc
       DOWNSTREAMS: ""
       LISTEN_ADDR: ":8080"
-      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
     ports:
       - "8081:8080"
-    depends_on:
-      otel-collector:
-        condition: service_started
 
   order-svc:
     image: causeway-meshgen:local
@@ -176,11 +156,8 @@ services:
       SERVICE_NAME: order-svc
       DOWNSTREAMS: "notification-svc:8080"
       LISTEN_ADDR: ":8080"
-      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
     depends_on:
       notification-svc:
-        condition: service_started
-      otel-collector:
         condition: service_started
 
   inventory-svc:
@@ -189,10 +166,6 @@ services:
       SERVICE_NAME: inventory-svc
       DOWNSTREAMS: ""
       LISTEN_ADDR: ":8080"
-      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
-    depends_on:
-      otel-collector:
-        condition: service_started
 
   pricing-svc:
     image: causeway-meshgen:local
@@ -200,10 +173,7 @@ services:
       SERVICE_NAME: pricing-svc
       DOWNSTREAMS: ""
       LISTEN_ADDR: ":8080"
-      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
-    depends_on:
-      otel-collector:
-        condition: service_started
+
 
   notification-svc:
     image: causeway-meshgen:local
@@ -211,10 +181,6 @@ services:
       SERVICE_NAME: notification-svc
       DOWNSTREAMS: ""
       LISTEN_ADDR: ":8080"
-      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
-    depends_on:
-      otel-collector:
-        condition: service_started
 
   auth-svc:
     image: causeway-meshgen:local
@@ -222,10 +188,6 @@ services:
       SERVICE_NAME: auth-svc
       DOWNSTREAMS: ""
       LISTEN_ADDR: ":8080"
-      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
-    depends_on:
-      otel-collector:
-        condition: service_started
 
   config-svc:
     image: causeway-meshgen:local
@@ -233,10 +195,6 @@ services:
       SERVICE_NAME: config-svc
       DOWNSTREAMS: ""
       LISTEN_ADDR: ":8080"
-      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
-    depends_on:
-      otel-collector:
-        condition: service_started
 
 
   otel-collector:
