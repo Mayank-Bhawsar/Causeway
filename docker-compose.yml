@@ -249,6 +249,34 @@ services:
     depends_on:
       - victoria-metrics 
 
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    volumes:
+      - ./deploy/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports:
+      - "9093:9093"
+
+  vmalert:
+    image: victoriametrics/vmalert:v1.106.1
+    volumes:
+      - ./deploy/vmalert/rules.yaml:/etc/vmalert/rules.yaml:ro
+    command:
+      - -rule=/etc/vmalert/rules.yaml
+      - -datasource.url=http://victoria-metrics:8428
+      - -remoteWrite.url=http://victoria-metrics:8428
+      - -remoteRead.url=http://victoria-metrics:8428
+      - -notifier.url=http://alertmanager:9093
+      - -evaluationInterval=15s
+    depends_on:
+      - victoria-metrics
+      - alertmanager
+      - causeway-api
+    ports: 
+      - "8880:8880"
+
 
   
 volumes:
