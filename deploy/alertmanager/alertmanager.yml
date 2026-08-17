@@ -1,0 +1,12 @@
+route:
+  receiver: causeway
+  group_by: ["alertname", "service_name"]
+  group_wait: 5s
+  group_interval: 30s
+  repeat_interval: 1h
+
+receivers:
+  - name: causeway
+    webhook_configs:
+      - url: http://causeway-api:8000/ingest/alerts
+        send_resolved: false
