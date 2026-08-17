@@ -1,5 +1,5 @@
 from datetime import datetime
-from enum import enum
+from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
@@ -38,7 +38,7 @@ class Signal (BaseModel):
     def kafka_topic(self) -> str:
         return {
             SignalKind.ALERT: "signals.alerts",
-            SignalKind.K8S_EVENT: "signals.k8s"
+            SignalKind.K8S_EVENT: "signals.k8s",
             SignalKind.DEPLOY: "signals.deploys",
             SignalKind.LOG_TEMPLATE: "signals.logs",
             SignalKind.TRACE_LATENCY_SHIFT: "signals.traces",

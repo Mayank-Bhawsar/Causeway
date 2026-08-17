@@ -1,0 +1,16 @@
+groups:
+  - name: causeway-red
+    interval: 15s
+    rules:
+      - alert: HighServiceLatecy
+        expr: |
+          (
+            sum by (service_name) (rate(traces_span_metrics_duration_milliseconds_sum{span_kind="SPAN_KIND_SERVER"}[1m]))
+            /
+            clamp_min(sum by (service_name) (rate(traces_span_metrics_duration_milliseconds_count{span_kind="SPAN_KIND_SERVER"}[1m])), 1)
+          ) > 200
+          for: 30s
+          labels:
+            severity: warning
+          annotations:
+            summary: "H"
