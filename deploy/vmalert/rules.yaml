@@ -13,4 +13,5 @@ groups:
           labels:
             severity: warning
           annotations:
-            summary: "H"
+            summary: "High latency on {{ $labels.service_name}}"
+            description: "Server span avg latency > 200ms (value= {{ $value}})"
