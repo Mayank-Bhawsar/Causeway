@@ -2,16 +2,20 @@ groups:
   - name: causeway-red
     interval: 15s
     rules:
-      - alert: HighServiceLatecy
+      - alert: HighServiceLatency
         expr: |
           (
-            sum by (service_name) (rate(traces_span_metrics_duration_milliseconds_sum{span_kind="SPAN_KIND_SERVER"}[1m]))
+            sum by (service_name) (
+              increase(traces_span_metrics_duration_milliseconds_sum{span_kind="SPAN_KIND_SERVER"}[1m])
+            )
             /
-            clamp_min(sum by (service_name) (rate(traces_span_metrics_duration_milliseconds_count{span_kind="SPAN_KIND_SERVER"}[1m])), 1)
+            sum by (service_name) (
+              increase(traces_span_metrics_duration_milliseconds_count{span_kind="SPAN_KIND_SERVER"}[1m])
+            )
           ) > 200
-          for: 30s
-          labels:
-            severity: warning
-          annotations:
-            summary: "High latency on {{ $labels.service_name}}"
-            description: "Server span avg latency > 200ms (value= {{ $value}})"
+        for: 0s
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency on {{ $labels.service_name }}"
+          description: "Server span avg latency > 200ms (value={{ $value }})"
