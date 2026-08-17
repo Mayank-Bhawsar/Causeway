@@ -71,9 +71,14 @@ services:
     command: python -m worker.main
     environment:
       KAFKA_BOOTSTRAP: redpanda:9092
+      VM_URL: http://victoria-metrics:8428
+      DETECT_LATENCY_MS: "200"
+      DETECH_INTERNAL_SEC: "15"
     depends_on:
       redpanda:
         condition: service_healthy
+      victoria-metrics:
+        condition: service_started
 
   frontend:
     build: ./meshgen

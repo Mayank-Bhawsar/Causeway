@@ -29,8 +29,8 @@ async def consume() -> None:
         async for msg in consumer:
             body = json.loads(msg.value.decode())
             print(
-                f"got topic={msg.topic} key={msg.key}"
-                f"signal_id={body.get('signal_id')} kind={body.get('kind')}",
+                f"got topic = {msg.topic} key = {msg.key} "
+                f"signal_id = {body.get('signal_id')} kind = {body.get('kind')}",
                 flush=True,
             )
     finally:
