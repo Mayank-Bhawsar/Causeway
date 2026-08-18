@@ -74,8 +74,12 @@ services:
       VM_URL: http://victoria-metrics:8428
       DETECT_LATENCY_MS: "200"
       DETECH_INTERNAL_SEC: "15"
+      DATABASE_URL_SYNC: postgres://causeway:causeway@postgres:5432/causeway
+      CORR_WINDOW_SEC: "30"
     depends_on:
       redpanda:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
       victoria-metrics:
         condition: service_started

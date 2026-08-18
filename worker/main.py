@@ -6,6 +6,7 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
 from api.models.signal import Signal
 from detectors.latency import detect_latency_signals
+from correlator.window import windowBuffer
 
 TOPICS = [
     "signals.alerts",
@@ -17,6 +18,8 @@ TOPICS = [
 
 async def consume() -> None:
     bootstrap = os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092")
+    
+    
     consumer = AIOKafkaConsumer(
         *TOPICS,
         bootstrap_servers=bootstrap,
@@ -25,6 +28,7 @@ async def consume() -> None:
     )
     await consumer.start()
     print(f"worker listening on {TOPICS}", flush=True)
+    buf = windowBuffer(window_sec=int(os.getenv("CORR_WINDOW_SEC", "30")))
     try:
         async for msg in consumer:
             body = json.loads(msg.value.decode())
@@ -33,6 +37,8 @@ async def consume() -> None:
                 f"signal_id = {body.get('signal_id')} kind = {body.get('kind')}",
                 flush=True,
             )
+            if inc:
+                print(f"correlator flushed {inc}", flush = True)
     finally:
         await consumer.stop()
 
