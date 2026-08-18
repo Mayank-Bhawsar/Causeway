@@ -10,6 +10,7 @@ DATABASE_URL = os.getenv(
     "postgresql://causeway:causeway@postgres:5432/causeway",
 ).replace("postgresql+asyncpg://", "postgresql://")
 
+STUB_SNAPSHOT = "snap_stub_v1"
 
 async def connect() -> asyncpg.Connection:
     return await asyncpg.connect(DATABASE_URL)
@@ -40,7 +41,7 @@ async def upsert_signal(conn: asyncpg.Connection, s: dict) -> None:
         datetime.fromisoformat(s["onset_at"].replace("Z", "+00:00")),
         datetime.fromisoformat(s["observed_at"].replace("Z", "+00:00")),
         s.get("fingerprint"),
-        __import__("json").dump(s.get("payload") or {}),
+        __import__("json").dumps(s.get("payload") or {}),
 
     )
 

@@ -37,6 +37,7 @@ async def consume() -> None:
                 f"signal_id = {body.get('signal_id')} kind = {body.get('kind')}",
                 flush=True,
             )
+            inc = buf.add(body)
             if inc:
                 print(f"correlator flushed {inc}", flush = True)
     finally:
