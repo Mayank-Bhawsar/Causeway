@@ -15,11 +15,11 @@ def _dsn() -> str:
 async def list_incidents() -> dict:
     conn = await asyncpg.connect(_dsn())
     try:
-        row = await conn.fetch(
+        rows = await conn.fetch(
             """
             SELECT incident_id, signal_count, status, lower(win) AS win_start,
                     upper(win) AS win_end, created_at
-            FROM incidents
+            FROM incident
             ORDER BY created_at DESC
             LIMIT 20
             """
