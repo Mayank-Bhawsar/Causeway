@@ -4,7 +4,8 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from correlator.db import connect, create_incident, upsert_signal
+from correlator.db import connect, create_incident, upsert_signal, insert_candidates
+from localiser.rank import rank_by_severity
 
 @dataclass
 class windowBuffer:
@@ -39,6 +40,10 @@ class windowBuffer:
             incident_id = f"inc_{uuid.uuid4().hex[:12]}"
             ids = [s["signal_id"] for s in self.signals]
             await create_incident(conn, incident_id, self.opened_at, now, ids)
+
+            cands = rank_by_severity(self.signals)
+            await insert_candidates(conn, incident_id, cands)
+            
             print(
                 f"correlator: incident={incident_id} signals={len(ids)} "
                 f"nodes={sorted({s['node_id'] for s in self.signals})}",
