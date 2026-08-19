@@ -26,6 +26,29 @@ async def ensure_stub_snapshot(conn: asyncpg.Connection) -> None:
         STUB_SNAPSHOT,
     )
 
+async def insert_candidates(
+    conn: asyncpg.Connection,
+    incident_id: str,
+    candidates: list[dict],
+) -> None:
+    for c in candidates:
+        await conn.execute(
+            """
+            INSERT INTO cause_candidate(
+            incident_id, node_id, rank, score, confidence, conformal_k, features
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+            ON CONFLICT (incident_id, node_id) DO UPDATE
+            SET rank = EXCLUDED.rank, score = EXCLUDED.score
+            """,
+            incident_id,
+            c["node_id"],
+            c["rank"],
+            c["score"],
+            c["confidence"],
+            c["conformal_k"],
+            __import__("json").dumps(c["features"]),
+        )
+
 async def upsert_signal(conn: asyncpg.Connection, s: dict) -> None:
     await conn.execute(
         """
