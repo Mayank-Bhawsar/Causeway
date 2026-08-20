@@ -7,6 +7,8 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from api.models.signal import Signal
 from detectors.latency import detect_latency_signals
 from correlator.window import windowBuffer
+from correlator.db import connect
+from topology.persist import refresh_topology
 
 TOPICS = [
     "signals.alerts",
@@ -69,8 +71,23 @@ async def detect_loop() -> None:
         await asyncio.sleep(interval)
 
 
+async def topology_loop() -> None:
+    interval = int(os.getenv("TOPO_INTERVAL_SEC", "60"))
+    while True:
+        try:
+            conn = await connect()
+            try:
+                await refresh_topology(conn)
+            finally:
+                await conn.close()
+        except Exception as exc:
+            print(f"topology_loop error: {exc}", flush=True)
+        await asyncio.sleep(interval)
+
+
+
 async def run() -> None:
-    await asyncio.gather(consume(), detect_loop())
+    await asyncio.gather(consume(), detect_loop(), topology_loop())
 
 if __name__ == "__main__":
     asyncio.run(run())
