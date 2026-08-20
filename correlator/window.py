@@ -35,10 +35,6 @@ class windowBuffer:
         if not self.signals or self.opened_at is None:
             return None
         now = now or datetime.now(timezone.utc)
-        pack = build_stub_pack(
-            incident_id, self.opened_at, now, self.signals, cands
-        )
-        await save_evidence_pack(conn, incident_id, pack)
         owns_conn = conn is None
         if owns_conn:
             conn = await connect()
@@ -48,7 +44,12 @@ class windowBuffer:
             await create_incident(conn, incident_id, self.opened_at, now, ids)
 
             cands = rank_by_severity(self.signals)
-            await insert_candidates(conn, incident_id, cands)
+            await insert_candidates(conn, incidents_id, cands)
+
+            pack = build_stub_pack(
+                incident_id, self.opened_at, now, self.signals, cands
+            )
+            await save_evidence_pack(conn, incident_id, pack)
 
             print(
                 f"correlator: incident={incident_id} signals={len(ids)} "

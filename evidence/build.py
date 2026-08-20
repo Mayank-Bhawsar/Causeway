@@ -7,14 +7,14 @@ def build_stub_pack(
     win_start: datetime,
     win_end: datetime,
     signals: list[dict],
-    candidate: list[dict],
+    candidates: list[dict],
 ) -> dict:
     entries: list[dict] = []
     n=1
 
     for s in signals:
         entries.append({
-            "key":f"EV-SIG-n{n:04d}",
+            "key":f"EV-SIG-{n:04d}",
             "kind": "signal",
             "node_id": s["node_id"],
             "signal_kind": s["kind"],
@@ -32,15 +32,14 @@ def build_stub_pack(
             "method": c.get("features", {}).get("method", "naive_severity"),
         })
 
-        return {
-            "incident_id": incident_id,
-            "version": "stub-v1",
-            "window": {
-                "start": win_start.isoformat(),
-                "end": win_end.isoformat(),
-            },
-            "signal_count": len(signals),
-            "entries": entries,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-        }
-        
+    return {
+        "incident_id": incident_id,
+        "version": "stub-v1",
+        "window": {
+            "start": win_start.isoformat(),
+            "end": win_end.isoformat(),
+        },
+        "signal_count": len(signals),
+        "entries": entries,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }

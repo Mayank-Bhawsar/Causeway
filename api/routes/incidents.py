@@ -1,6 +1,7 @@
 import os
 import asyncpg
 from fastapi import APIRouter
+from narrator.openai_narrator import narrate
 
 router = APIRouter(prefix="/api/v1", tags=["incidents"])
 
@@ -72,5 +73,35 @@ async def get_candidates(incident_id: str) -> dict:
             "incident_id": incident_id,
             "candidates": [dict(r) for r in rows],
         }
+    finally:
+        await conn.close()
+
+
+@router.post("/incidents/{incident_id}/narrate")
+async def narrate_incident(incident_id: str) -> dict:
+    if not os.getenv("OPENAI_API_KEY"):
+        return {
+            "error": "OPENAI_API_KEY not set - narrative deferred",
+            "incident_id": incident_id,
+        }
+    conn = await asyncpg.connect(_dsn())
+    try:
+        row = await conn.fetchrow(
+            "SELECT pack FROM evidence_pack WHERE incident_id = $1", incident_id
+        )
+        if not row:
+            return {"error": "no evidence pack - run correlator first"}
+        body = await narrate(row["pack"])
+        await conn.execute(
+            """
+            INSERT INTO narrative (incident_id, body, provider)
+            VALUES ($1, $2::jsonb, 'openai')
+            ON CONFLICT (incident_id) DO UPDATE
+            SET body = EXCLUDED.body, provider = EXCLUDED.provider
+            """,
+            incident_id,
+            json_dumps(body),
+        )
+        return {"incident_id": incident_id, "narrative": body}
     finally:
         await conn.close()
