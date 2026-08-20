@@ -44,7 +44,7 @@ class windowBuffer:
             await create_incident(conn, incident_id, self.opened_at, now, ids)
 
             cands = rank_by_severity(self.signals)
-            await insert_candidates(conn, incidents_id, cands)
+            await insert_candidates(conn, incident_id, cands)
 
             pack = build_stub_pack(
                 incident_id, self.opened_at, now, self.signals, cands

@@ -68,7 +68,7 @@ async def get_candidates(incident_id: str) -> dict:
             incident_id,
         )
         if not rows:
-            return {"incident_id": incident_id, "candidate": []}
+            return {"incident_id": incident_id, "candidates": []}
         return {
             "incident_id": incident_id,
             "candidates": [dict(r) for r in rows],
