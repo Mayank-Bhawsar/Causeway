@@ -39,7 +39,7 @@ async def refresh_topology(conn: asyncpg.Connection) -> str | None:
                 lat_share = EXCLUDED.lat_share
             """,
             e["src"],
-            e["sdt"],
+            e["dst"],
             e["rel"],
             bucket_start,
             now,

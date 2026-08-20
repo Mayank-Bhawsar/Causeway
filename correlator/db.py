@@ -16,6 +16,18 @@ async def connect() -> asyncpg.Connection:
     return await asyncpg.connect(DATABASE_URL)
 
 
+async def ensure_stub_snapshot(conn:asyncpg.Connection) -> None:
+    await conn.execute(
+        """
+        INSERT INTO topology_snapshot (snapshot_id, taken_at, node_count, edge_count, body)
+        VALUES ($1, now(), 0, 0, $2)
+        ON CONFLICT (snapshot_id) DO NOTHING
+        """,
+        STUB_SNAPSHOT,
+        b"\x00",
+    )
+
+
 async def latest_snapshot_id(conn: asyncpg.Connection) -> str:
     row = await conn.fetchrow(
         "SELECT snapshot_id FROM topology_snapshot ORDER BY taken_at DESC LIMIT 1"
@@ -24,6 +36,45 @@ async def latest_snapshot_id(conn: asyncpg.Connection) -> str:
         return row["snapshot_id"]
     await ensure_stub_snapshot(conn)
     return STUB_SNAPSHOT
+
+
+async def create_incident(
+    conn: asyncpg.Connection,
+    incident_id: str,
+    win_start: datetime,
+    win_end: datetime,
+    signal_ids: list[str],
+) -> None:
+    await ensure_stub_snapshot(conn)
+    await conn.execute(
+      """
+      INSERT INTO incident (
+        incident_id, win, snapshot_id, signal_count, status
+      ) VALUES (
+        $1,
+        tstzrange($2::timestamptz, $3::timestamptz, '[)'),
+        $4,
+        $5,
+        'open'
+      )
+      ON CONFLICT (incident_id) DO NOTHING
+      """,
+    incident_id,
+    win_start,
+    win_end,
+    STUB_SNAPSHOT,
+    len(signal_ids),
+    )
+    for sid in signal_ids:
+        await conn.execute(
+            """
+            INSERT INTO incident_signal (incident_id, signal_id)
+            VALUES ($1, $2)
+            ON CONFLICT DO NOTHING
+            """,
+            incident_id,
+            sid,
+        )
 
 async def insert_candidates(
     conn: asyncpg.Connection,
@@ -67,43 +118,7 @@ async def upsert_signal(conn: asyncpg.Connection, s: dict) -> None:
 
     )
 
-async def create_incident(
-    conn: asyncpg.Connection,
-    incident_id: str,
-    win_start: datetime,
-    win_end: datetime,
-    signal_ids: list[str],
-) -> None:
-    await ensure_stub_snapshot(conn)
-    await conn.execute(
-      """
-      INSERT INTO incident (
-        incident_id, win, snapshot_id, signal_count, status
-      ) VALUES (
-        $1,
-        tstzrange($2::timestamptz, $3::timestamptz, '[)'),
-        $4,
-        $5,
-        'open'
-      )
-      ON CONFLICT (incident_id) DO NOTHING
-      """,
-    incident_id,
-    win_start,
-    win_end,
-    STUB_SNAPSHOT,
-    len(signal_ids),
-    )
-    for sid in signal_ids:
-        await conn.execute(
-            """
-            INSERT INTO incident_signal (incident_id, signal_id)
-            VALUES ($1, $2)
-            ON CONFLICT DO NOTHING
-            """,
-            incident_id,
-            sid,
-        )
+
 
 async def save_evidence_pack(conn: asyncpg.Connection, incident_id: str, pack: dict) -> None:
     await conn.execute(
