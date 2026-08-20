@@ -16,16 +16,14 @@ async def connect() -> asyncpg.Connection:
     return await asyncpg.connect(DATABASE_URL)
 
 
-async def ensure_stub_snapshot(conn: asyncpg.Connection) -> None:
-    await conn.execute(
-        """
-        INSERT INTO topology_snapshot (snapshot_id, taken_at, node_count, edge_count, body)
-        VALUES ($1, now(), 0, 0, $2)
-        ON CONFLICT (snapshot_id) DO NOTHING
-        """,
-        STUB_SNAPSHOT,
-        b"\x00",
+async def latest_snapshot_id(conn: asyncpg.Connection) -> str:
+    row = await conn.fetchrow(
+        "SELECT snapshot_id FROM topology_snapshot ORDER BY taken_at DESC LIMIT 1"
     )
+    if row:
+        return row["snapshot_id"]
+    await ensure_stub_snapshot(conn)
+    return STUB_SNAPSHOT
 
 async def insert_candidates(
     conn: asyncpg.Connection,
