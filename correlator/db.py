@@ -20,10 +20,11 @@ async def ensure_stub_snapshot(conn: asyncpg.Connection) -> None:
     await conn.execute(
         """
         INSERT INTO topology_snapshot (snapshot_id, taken_at, node_count, edge_count, body)
-        VALUES ($1, now(), 0, 0, '\x00'::bytea)
+        VALUES ($1, now(), 0, 0, $2)
         ON CONFLICT (snapshot_id) DO NOTHING
         """,
         STUB_SNAPSHOT,
+        b"\x00",
     )
 
 async def insert_candidates(
@@ -105,3 +106,14 @@ async def create_incident(
             incident_id,
             sid,
         )
+
+async def save_evidence_pack(conn: asyncpg.Connection, incident_id: str, pack: dict) -> None:
+    await conn.execute(
+        """
+        INSERT INTO evidence_pack (incident_id, pack)
+        VALUES ($1, $2::jsonb)
+        ON CONFLICT (incident_id) DO UPDATE SET pack = EXCLUDED.pack
+        """,
+        incident_id,
+        __import__("json").dumps(pack),
+    )

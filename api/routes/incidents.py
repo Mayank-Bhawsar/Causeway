@@ -51,3 +51,26 @@ async def get_incident(incident_id: str) -> dict:
         return {"incident": dict(inc), "signals": [dict(s) for s in signals]}
     finally:
         await conn.close()
+
+
+@router.get("/incidents/{incident_id}/candidates")
+async def get_candidates(incident_id: str) -> dict:
+    conn = await asyncpg.connect(_dsn())
+    try:
+        rows =await conn.fetch(
+            """
+            SELECT node_id, rank, score, confidence, conformal_k, features
+            FROM cause_candidate
+            WHERE incident_id = $1
+            ORDER BY rank
+            """,
+            incident_id,
+        )
+        if not rows:
+            return {"incident_id": incident_id, "candidate": []}
+        return {
+            "incident_id": incident_id,
+            "candidates": [dict(r) for r in rows],
+        }
+    finally:
+        await conn.close()

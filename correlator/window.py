@@ -3,9 +3,11 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from evidence.build import build_stub_pack
 
 from correlator.db import connect, create_incident, upsert_signal, insert_candidates
 from localiser.rank import rank_by_severity
+from correlator.db import save_evidence_pack
 
 @dataclass
 class windowBuffer:
@@ -33,6 +35,10 @@ class windowBuffer:
         if not self.signals or self.opened_at is None:
             return None
         now = now or datetime.now(timezone.utc)
+        pack = build_stub_pack(
+            incident_id, self.opened_at, now, self.signals, cands
+        )
+        await save_evidence_pack(conn, incident_id, pack)
         owns_conn = conn is None
         if owns_conn:
             conn = await connect()
@@ -43,7 +49,7 @@ class windowBuffer:
 
             cands = rank_by_severity(self.signals)
             await insert_candidates(conn, incident_id, cands)
-            
+
             print(
                 f"correlator: incident={incident_id} signals={len(ids)} "
                 f"nodes={sorted({s['node_id'] for s in self.signals})}",
