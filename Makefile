@@ -60,3 +60,8 @@ feedback:
 	  -H 'Content-Type: application/json' \
 	  -d '{"actual_root":"svc:payment-svc","submitted_by":"local"}' \
 	  | python3 -m json.tool
+
+evidence:
+	@INC=$(INC); \
+	echo "evidence $$INC"; \
+	curl -s "$(API)/api/v1/incidents/$$INC/evidence" | python3 -m json.tool | head -100
