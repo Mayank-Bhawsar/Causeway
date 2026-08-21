@@ -26,19 +26,15 @@ def _pagerank(
                     nxt[v] +=damping * pr[u] * pers[v]
                 continue
             wsum = sum(w for _, w in outs) or 1.0
-            for v,w in outs;
+            for v,w in outs:
                 nxt[v] += damping * pr[u] * (w / wsum)
         pr = nxt
     return pr
 
 def rank_by_blame(
     signals: list[dict],
-    edges: list[dict],
-) ->  list[dict]:
-    """
-    Blame waks alogn CALLS (caller -> callee).
-    Personalization = max severity per node.
-    """
+    edges: list[dict]
+) -> list[dict]:
     sev: dict[str, float] = defaultdict(float)
     for s in signals:
         node = s["node_id"]
@@ -50,29 +46,19 @@ def rank_by_blame(
     nodes = sorted({e["src"] for e in edges} | {e["dst"] for e in edges} | set(sev))
 
     out: dict[str, list[tuple[str,float]]] = defaultdict(list)
+
     for e in edges:
         w = float(e.get("call_share") or e.get("calls") or 1.0)
-        out[e["src"]].append((e["ds"],w))
+        out[e["src"]].append((e["dst"],w))
         out[e["dst"]].append((e["src"], 0.25 * w))
+
     for u in nodes:
-        if not out[u]:
+        has_forward = any(e["src"] == u for e in edges)
+        if not has_forward or not out[u]:
             out[u].append((u, 1.0))
-        elif all(v != u for v, _ in out[u]):
-
-            if sum(1 for _, _ in out[u] if True) and not any (
-                dst == u for dst, _ in out[u]
-            ):
-                pass
-    for u in nodes:
-
-        has_forward = any(
-            (e["src"] == u) for e in edges
-        )
-        if not has_forward:
-            out[u].append((u ,1.0))
 
     pers = {u: sev.get(u, 0.0) for u in nodes}
-    if sum(pers.values()) <= 0:
+    if sum(pers.values()) <=0:
         pers = {u: 1.0 for u in nodes}
 
     raw = _pagerank(nodes, out, pers)
@@ -82,23 +68,23 @@ def rank_by_blame(
         for u in nodes
         if sev.get(u, 0) > 0
     }
-
     ordered = sorted(lift.items(), key=lambda kv: kv[1], reverse=True)
-    out_list = []
-    for i, (node_id, score) in enumerate( ordered, start=1):
-        out_list.append(
-            {
-                "node_id": node_id,
-                "rank": i,
-                "score": float(score),
-                "confidence": round(min(1.0, float(score) / (ordered[0][1] or 1.0)), 3),
-                "conformal_k": min(3, len(ordered)),
-                "features": {
-                    "method": "blame_pagerank",
-                    "ppr_raw": raw.get(node_id, 0.0),
-                    "ppr_base": base.get(node_id, 0.0),
-                    "max_severity": sev.get(node_id, 0.0),
-                },
-            }
-        )
-    return out_list
+    return [
+        {
+            "node_id": node_id,
+            "rank": i,
+            "score": float(score),
+            "confidence": round(min(1.0, float(score) / (ordered[0][1] or 1.0)), 3),
+            "conformal_k": min(3, len(ordered)),
+            "features": {
+                "method": "blame_pagerank",
+                "ppr_raw": raw.get(node_id, 0.0),
+                "ppr_base": base.get(node_id, 0.0),
+                "max_severity": sev.get(node_id, 0.0),
+            },
+        }
+        for i, (node_id, score) in enumerate(ordered, start=1)
+    ]
+
+        
+        

@@ -6,7 +6,6 @@ from datetime import datetime, timedelta, timezone
 from evidence.build import build_stub_pack
 
 from correlator.db import connect, create_incident, upsert_signal, insert_candidates
-from localiser.rank import rank_by_severity
 from correlator.db import save_evidence_pack
 
 from localiser.rank import rank_by_severity
@@ -50,7 +49,7 @@ class windowBuffer:
                 """
                 SELECT src, dst, calls, call_share
                 FROM edge_observation
-                WHERE upper(bucket) > now() - interval '10 minutes
+                WHERE upper(bucket) > now() - interval '30 minutes'
                 ORDER BY calls DESC
                 LIMIT 200
                 """
@@ -60,9 +59,6 @@ class windowBuffer:
             cands = rank_by_blame(self.signals, edge_dicts) or rank_by_severity(self.signals)
             await insert_candidates(conn, incident_id, cands)
 
-            cands = rank_by_severity(self.signals)
-            await insert_candidates(conn, incident_id, cands)
-
             pack = build_stub_pack(
                 incident_id, self.opened_at, now, self.signals, cands
             )
@@ -70,6 +66,7 @@ class windowBuffer:
 
             print(
                 f"correlator: incident={incident_id} signals={len(ids)} "
+                f"method={(cands[0]['features'].get('method') if cands else None)}"
                 f"nodes={sorted({s['node_id'] for s in self.signals})}",
                 flush=True,
             )
