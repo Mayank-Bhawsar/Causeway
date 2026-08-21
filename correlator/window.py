@@ -9,6 +9,9 @@ from correlator.db import connect, create_incident, upsert_signal, insert_candid
 from localiser.rank import rank_by_severity
 from correlator.db import save_evidence_pack
 
+from localiser.rank import rank_by_severity
+from localiser.blame import rank_by_blame
+
 @dataclass
 class windowBuffer:
     window_sec : int = 90
@@ -42,6 +45,20 @@ class windowBuffer:
             incident_id = f"inc_{uuid.uuid4().hex[:12]}"
             ids = [s["signal_id"] for s in self.signals]
             await create_incident(conn, incident_id, self.opened_at, now, ids)
+
+            edges = await conn.fetch(
+                """
+                SELECT src, dst, calls, call_share
+                FROM edge_observation
+                WHERE upper(bucket) > now() - interval '10 minutes
+                ORDER BY calls DESC
+                LIMIT 200
+                """
+            )
+
+            edge_dicts = [dict(r) for r in edges]
+            cands = rank_by_blame(self.signals, edge_dicts) or rank_by_severity(self.signals)
+            await insert_candidates(conn, incident_id, cands)
 
             cands = rank_by_severity(self.signals)
             await insert_candidates(conn, incident_id, cands)
