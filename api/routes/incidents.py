@@ -105,3 +105,44 @@ async def narrate_incident(incident_id: str) -> dict:
         return {"incident_id": incident_id, "narrative": body}
     finally:
         await conn.close()
+
+
+@router.get("/incidents/{incident_id}/graph")
+async def get_incident_graph(incident_id: str) -> dict:
+    conn = await asyncpg.connect(_dsn())
+    try:
+        inc = await conn.fetchrow(
+            "SELECT incident_id, snapshot_id FROM incident WHERE incident_id = $1",
+            incident_id,
+        )
+        if not inc:
+            return {"error": "not found"}
+
+        snap = await conn.fetchrow(
+            "SELECT snapshot_id, taken_at, node_count, edge_count, body"
+            "FROM topology_snapshot WHERE snapshot_id = $1",
+            inc["snapshot_id"],
+        )
+        body = {}
+        if snap and snap["body"]:
+            import json
+            try:
+                body = json.loads(bytes(snap["body"]).decode())
+            except Exception:
+                body = {}
+
+        cands = await conn.fetch(
+            "SELECT node_id, rank, score FROM cause_candidate"
+            "WHERE incident_id = $1 ORDER BY rank"
+            incident_id,
+        )
+        return {
+            "incident_id": incident_id,
+            "snapshot_id": inc["snapshot_id"],
+            "nodes": body.get("nodes", []),
+            "edges": body.get("edges", []),
+            "candidates": [dict(c) for c in cands],
+            "taken_at": snap["taken_at"] if snap else None,
+        }
+    finally:
+        await conn.close()
