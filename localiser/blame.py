@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import datetime, timezone
 
 
 def _pagerank(
@@ -31,14 +32,26 @@ def _pagerank(
         pr = nxt
     return pr
 
+def _as_dt(v):
+    if v is None:
+        return None
+    if isinstance(v, datetime):
+        return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+    s = str(v).replace("Z", "+00:00")
+    return datetime.fromisoformat(s)
+
 def rank_by_blame(
     signals: list[dict],
     edges: list[dict]
 ) -> list[dict]:
     sev: dict[str, float] = defaultdict(float)
+    onset: dict{str, datetime} = {}
     for s in signals:
         node = s["node_id"]
         sev[node] = max(sev[node], float(s.get("severity") or 0.0))
+        t = _as_dt(s.get("onset_at") or s.get("observed_at"))
+        if t is not None:
+            onset[node] = min(onset[node], t) if node in onset else t
 
     if not edges:
         return []
@@ -61,6 +74,14 @@ def rank_by_blame(
     if sum(pers.values()) <=0:
         pers = {u: 1.0 for u in nodes}
 
+    if onset:
+        t0 = min(onset.values())
+        for u in pers:
+            if u not in onset:
+                continue
+            delta = max(0.0, (onset[u] -t0).total_seconds())
+            pers[u] *= 1.0 + max(0.0, 1.0 - delta / 60.0)
+
     raw = _pagerank(nodes, out, pers)
     base = _pagerank(nodes, out, {u: 1.0 for u in nodes})
     lift = {
@@ -77,6 +98,7 @@ def rank_by_blame(
             "confidence": round(min(1.0, float(score) / (ordered[0][1] or 1.0)), 3),
             "conformal_k": min(3, len(ordered)),
             "features": {
+                "onset_boost": True if onset else False,
                 "method": "blame_pagerank",
                 "ppr_raw": raw.get(node_id, 0.0),
                 "ppr_base": base.get(node_id, 0.0),
@@ -85,6 +107,8 @@ def rank_by_blame(
         }
         for i, (node_id, score) in enumerate(ordered, start=1)
     ]
+
+    
 
         
         

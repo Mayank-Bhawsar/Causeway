@@ -120,8 +120,8 @@ async def get_incident_graph(incident_id: str) -> dict:
 
         snap = await conn.fetchrow(
             """
-            SELECT snapshot_id, taken_at, node_count, edge_count, body"
-            "FROM topology_snapshot WHERE snapshot_id = $1
+            SELECT snapshot_id, taken_at, node_count, edge_count, body
+            FROM topology_snapshot WHERE snapshot_id = $1
             """,
             inc["snapshot_id"],
         )
@@ -137,7 +137,7 @@ async def get_incident_graph(incident_id: str) -> dict:
             """
             SELECT node_id, rank, score FROM cause_candidate
             WHERE incident_id = $1 ORDER BY rank
-            """.
+            """,
             incident_id,
         )
         return {
