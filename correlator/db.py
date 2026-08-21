@@ -45,7 +45,8 @@ async def create_incident(
     win_end: datetime,
     signal_ids: list[str],
 ) -> None:
-    await ensure_stub_snapshot(conn)
+    snapshot_id = await latest_snapshot_id(conn)
+    
     await conn.execute(
       """
       INSERT INTO incident (
@@ -62,7 +63,7 @@ async def create_incident(
     incident_id,
     win_start,
     win_end,
-    STUB_SNAPSHOT,
+    snapshot_id,
     len(signal_ids),
     )
     for sid in signal_ids:
