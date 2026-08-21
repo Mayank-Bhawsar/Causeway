@@ -119,8 +119,10 @@ async def get_incident_graph(incident_id: str) -> dict:
             return {"error": "not found"}
 
         snap = await conn.fetchrow(
-            "SELECT snapshot_id, taken_at, node_count, edge_count, body"
-            "FROM topology_snapshot WHERE snapshot_id = $1",
+            """
+            SELECT snapshot_id, taken_at, node_count, edge_count, body"
+            "FROM topology_snapshot WHERE snapshot_id = $1
+            """,
             inc["snapshot_id"],
         )
         body = {}
@@ -132,8 +134,10 @@ async def get_incident_graph(incident_id: str) -> dict:
                 body = {}
 
         cands = await conn.fetch(
-            "SELECT node_id, rank, score FROM cause_candidate"
-            "WHERE incident_id = $1 ORDER BY rank"
+            """
+            SELECT node_id, rank, score FROM cause_candidate
+            WHERE incident_id = $1 ORDER BY rank
+            """.
             incident_id,
         )
         return {
@@ -144,5 +148,34 @@ async def get_incident_graph(incident_id: str) -> dict:
             "candidates": [dict(c) for c in cands],
             "taken_at": snap["taken_at"] if snap else None,
         }
+    finally:
+        await conn.close()
+
+
+@router.post("/incidents/{incident_id}/feedback")
+async def submit_feedback(incident_id: str, body: dict) -> dict:
+    conn = await asyncpg.connect(_dsn())
+    try:
+        top = await conn.fetchrow(
+            """
+            SELECT node_id, rank FROM cause_candidate
+            WHERE incident_id=$1 AND node_id=$2
+            """,
+            incident_id, body["actual_root"],
+        )
+        await conn.execute(
+            """
+            INSERT INTO feedback (incident_id, actual_root, correct_rank, submitted_by)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (incident_id, submitted_by) DO UPDATE
+            SET actual_root = EXCLUDED.actual_root,
+            correct_rank = EXCLUDED.correct_rank
+            """,
+            incident_id,
+            body["actual_root"],
+            top["rank"] if top else None,
+            body.get("submitted_by", "local"),
+        )
+        return {"ok": True, "correct_rank": top["rank"] if top else None}
     finally:
         await conn.close()
