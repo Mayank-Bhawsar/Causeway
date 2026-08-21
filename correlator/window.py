@@ -76,3 +76,18 @@ class windowBuffer:
         finally:
             if owns_conn and conn is not None:
                 await conn.close()
+                
+
+@router.get("/incidents/{incident_id}/evidence")
+async def get_evidence(incident_id: str) -> dict:
+    conn = await asyncpg.connect(_dsn())
+    try:
+        row = await conn.fetchrow(
+            "SELECT pack FROM evidence_pack WHERE incident_id = $1",
+            incident_id,
+        )
+        if not row:
+            return {"error": "no evidence pack"}
+        return {"incident_id": incident_id, "pack": row["pack"]}
+    finally:
+        await conn.close()
