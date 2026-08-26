@@ -1,4 +1,4 @@
-.PHONY: help up down build logs demo score graph health seed-gt feedback
+.PHONY: help up down build logs demo score graph health seed-gt feedback evidence action
 
 API      ?= http://localhost:8000
 EXPECTED ?= svc:payment-svc
@@ -65,3 +65,8 @@ evidence:
 	@INC=$(INC); \
 	echo "evidence $$INC"; \
 	curl -s "$(API)/api/v1/incidents/$$INC/evidence" | python3 -m json.tool | head -100
+
+action:
+	@INC=$(INC); \
+	echo "action $$INC"; \
+	curl -s -X POST "$(API)/api/v1/incidents/$$INC/actions" | python3 -m json.tool

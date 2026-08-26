@@ -45,7 +45,7 @@ def rank_by_blame(
     edges: list[dict]
 ) -> list[dict]:
     sev: dict[str, float] = defaultdict(float)
-    onset: dict{str, datetime} = {}
+    onset: dict[str, datetime] = {}
     for s in signals:
         node = s["node_id"]
         sev[node] = max(sev[node], float(s.get("severity") or 0.0))

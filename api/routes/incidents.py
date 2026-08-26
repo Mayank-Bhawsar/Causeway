@@ -2,6 +2,7 @@ import os
 import asyncpg
 from fastapi import APIRouter
 from narrator.openai_narrator import narrate
+from actions.suggest import suggest_action
 
 router = APIRouter(prefix="/api/v1", tags=["incidents"])
 
@@ -177,5 +178,48 @@ async def submit_feedback(incident_id: str, body: dict) -> dict:
             body.get("submitted_by", "local"),
         )
         return {"ok": True, "correct_rank": top["rank"] if top else None}
+    finally:
+        await conn.close()
+
+
+@router.get("/incidents/{incident_id}/evidence")
+async def get_evidence(incident_id: str) -> dict:
+    conn = await asyncpg.connect(_dsn())
+    try:
+        row = await conn.fetchrow(
+            "SELECT pack FROM evidence_pack WHERE incident_id = $1",
+            incident_id,
+        )
+        if not row:
+            return {"error": "no evidence pack"}
+        return {"incident_id": incident_id, "pack": row["pack"]}
+    finally:
+        await conn.close()
+
+@router.post("/incidents/{incident_id}/actions")
+async def propose_action(incident_id: str) -> dict:
+    conn = await asyncpg.connect(_dsn())
+    try:
+        row = await conn.fetchrow(
+            "SELECT pack FROM evidence_pack WHERE incident_id = $1",
+            incident_id,
+        )
+        if not row:
+            return {"error": "no evidence pack"}
+        pack = row["pack"]
+        if isinstance(pack, str):
+            import json
+            pack = json.loads(pack)
+        suggestion = suggest_action(pack)
+        await conn.execute(
+            """
+            INSERT INTO audit_log (actor, incident_id, action, row_hash)
+            VALUES ('causeway', $1, $2::jsonb, $3)
+            """,
+            incident_id,
+            __import__("json").dumps(suggestion),
+            b"\x00",
+        )
+        return {"incident_id": incident_id, "suggested_action": suggestion, "applied": False}
     finally:
         await conn.close()

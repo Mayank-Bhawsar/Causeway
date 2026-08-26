@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from evidence.build import build_stub_pack
+from evidence.build import build_evidence_pack
 
 from correlator.db import connect, create_incident, upsert_signal, insert_candidates
 from correlator.db import save_evidence_pack
@@ -59,8 +59,8 @@ class windowBuffer:
             cands = rank_by_blame(self.signals, edge_dicts) or rank_by_severity(self.signals)
             await insert_candidates(conn, incident_id, cands)
 
-            pack = build_stub_pack(
-                incident_id, self.opened_at, now, self.signals, cands
+            pack = build_evidence_pack(
+                incident_id, self.opened_at, now, self.signals, cands, edge_dicts
             )
             await save_evidence_pack(conn, incident_id, pack)
 
@@ -76,18 +76,5 @@ class windowBuffer:
         finally:
             if owns_conn and conn is not None:
                 await conn.close()
-                
 
-@router.get("/incidents/{incident_id}/evidence")
-async def get_evidence(incident_id: str) -> dict:
-    conn = await asyncpg.connect(_dsn())
-    try:
-        row = await conn.fetchrow(
-            "SELECT pack FROM evidence_pack WHERE incident_id = $1",
-            incident_id,
-        )
-        if not row:
-            return {"error": "no evidence pack"}
-        return {"incident_id": incident_id, "pack": row["pack"]}
-    finally:
-        await conn.close()
+

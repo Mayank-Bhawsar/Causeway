@@ -75,7 +75,7 @@ def build_evidence_pack(
             "node_id": c["node_id"],
             "score": c["score"],
             "confidence": c.get("confidence"),
-            "method": (c.get("features"), {}).get("method"),
+            "method": (c.get("features") or {}).get("method"),
         })
 
     hot = {s["node_id"] for s in signals} | {c["node_id"] for c in candidates[:5]}
