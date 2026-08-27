@@ -13,7 +13,9 @@ Every evidence_refs entry MUST exist in the pack entries' "key" field.
 Do Not invent numbers not present in the pack."""
 
 
-async def narrate(pack: dict) -> dict:
+async def narrate(pack: dict | str) -> dict:
+    if isinstance(pack, str):
+        pack = json.loads(pack)
     client = AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
     resp = await client.chat.completions.create(
         model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),

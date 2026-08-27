@@ -1,4 +1,4 @@
-.PHONY: help up down build logs demo score graph health seed-gt feedback evidence action
+.PHONY: help up down build logs demo score graph health seed-gt feedback evidence action narrate
 
 API      ?= http://localhost:8000
 EXPECTED ?= svc:payment-svc
@@ -70,3 +70,8 @@ action:
 	@INC=$(INC); \
 	echo "action $$INC"; \
 	curl -s -X POST "$(API)/api/v1/incidents/$$INC/actions" | python3 -m json.tool
+
+narrate:
+	@INC=$(INC); \
+	echo "narrate $$INC"; \
+	curl -s -X POST "$(API)/api/v1/incidents/$$INC/narrate" | python3 -m json.tool

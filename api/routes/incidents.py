@@ -212,8 +212,9 @@ async def propose_action(incident_id: str) -> dict:
             return {"error": "no evidence pack"}
         pack = row["pack"]
         if isinstance(pack, str):
-            import json
             pack = json.loads(pack)
+        body = await narrate(pack)
+        errs = validate_narrative(pack,body)
         suggestion = suggest_action(pack)
         await conn.execute(
             """
