@@ -3,6 +3,7 @@ import asyncpg
 from fastapi import APIRouter
 from narrator.openai_narrator import narrate
 from actions.suggest import suggest_action
+from narrator.validate import validate_narrative
 
 router = APIRouter(prefix="/api/v1", tags=["incidents"])
 
@@ -93,6 +94,9 @@ async def narrate_incident(incident_id: str) -> dict:
         if not row:
             return {"error": "no evidence pack - run correlator first"}
         body = await narrate(row["pack"])
+        errs = validate_narrative(row["pack"] if isinstance(row["pack"], dict) else json.loads(row["pack"]), body)
+        if errs:
+            return {"incident_id": incident_id, "narrative": None, "errors": errs}
         await conn.execute(
             """
             INSERT INTO narrative (incident_id, body, provider)
@@ -101,7 +105,7 @@ async def narrate_incident(incident_id: str) -> dict:
             SET body = EXCLUDED.body, provider = EXCLUDED.provider
             """,
             incident_id,
-            json_dumps(body),
+            json.dumps(body),
         )
         return {"incident_id": incident_id, "narrative": body}
     finally:
