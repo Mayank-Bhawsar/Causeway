@@ -11,9 +11,11 @@ make demo          # payment-svc latency + load (~90s)
 # wait ~2 minutes for topology + correlator window
 make score         # expect svc:payment-svc
 make graph
-make evidence
+make -B evidence
 make feedback
 make action        # diagnostic suggestion only
+make narrate       # requires OPENAI_API_KEY + outbound HTTPS from Docker
+make narrative   # read stored narrative after narrate succeeds
 ```
 
-OpenAI narration is deferred until `OPENAI_API_KEY` is set.
+Set `OPENAI_API_KEY` in `.env`. The API container must reach `api.openai.com` (fix WSL/Docker DNS if you see `APIConnectionError`).

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from datetime import datetime, timezone
 
@@ -97,7 +98,7 @@ async def insert_candidates(
             c["score"],
             c["confidence"],
             c["conformal_k"],
-            __import__("json").dumps(c["features"]),
+            json.dumps(c["features"]),
         )
 
 async def upsert_signal(conn: asyncpg.Connection, s: dict) -> None:
@@ -115,13 +116,13 @@ async def upsert_signal(conn: asyncpg.Connection, s: dict) -> None:
         datetime.fromisoformat(s["onset_at"].replace("Z", "+00:00")),
         datetime.fromisoformat(s["observed_at"].replace("Z", "+00:00")),
         s.get("fingerprint"),
-        __import__("json").dumps(s.get("payload") or {}),
+        json.dumps(s.get("payload") or {}),
 
     )
 
 
 
-async def save_evidence_pack(conn: asyncpg.Connection, incident_id: str, pack: dict) -> None:
+async def save_evidence_pack(conn, incident_id: str, pack: dict) -> None:
     await conn.execute(
         """
         INSERT INTO evidence_pack (incident_id, pack)
@@ -129,5 +130,5 @@ async def save_evidence_pack(conn: asyncpg.Connection, incident_id: str, pack: d
         ON CONFLICT (incident_id) DO UPDATE SET pack = EXCLUDED.pack
         """,
         incident_id,
-        __import__("json").dumps(pack),
+        json.dumps(pack),
     )

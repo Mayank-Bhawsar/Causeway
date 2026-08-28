@@ -1,5 +1,6 @@
 import os
 import asyncpg
+import json
 from fastapi import APIRouter
 from narrator.openai_narrator import narrate
 from actions.suggest import suggest_action
@@ -60,7 +61,7 @@ async def get_incident(incident_id: str) -> dict:
 async def get_candidates(incident_id: str) -> dict:
     conn = await asyncpg.connect(_dsn())
     try:
-        rows =await conn.fetch(
+        rows = await conn.fetch(
             """
             SELECT node_id, rank, score, confidence, conformal_k, features
             FROM cause_candidate
@@ -89,14 +90,36 @@ async def narrate_incident(incident_id: str) -> dict:
     conn = await asyncpg.connect(_dsn())
     try:
         row = await conn.fetchrow(
-            "SELECT pack FROM evidence_pack WHERE incident_id = $1", incident_id
+            "SELECT pack FROM evidence_pack WHERE incident_id = $1",
+            incident_id,
         )
         if not row:
             return {"error": "no evidence pack - run correlator first"}
-        body = await narrate(row["pack"])
-        errs = validate_narrative(row["pack"] if isinstance(row["pack"], dict) else json.loads(row["pack"]), body)
+
+        pack = row["pack"]
+        if isinstance(pack, str):
+            pack = json.loads(pack)
+
+        try:
+            body = await narrate(pack)
+        except Exception as exc:  # noqa: BLE001
+            return {"incident_id": incident_id, "narrative": None, "error": str(exc)}
+
+        errs = validate_narrative(pack, body)
+        if errs:
+            try:
+                body = await narrate(pack, validation_errors=errs)
+                errs = validate_narrative(pack, body)
+            except Exception as exc:  # noqa: BLE001
+                return {
+                    "incident_id": incident_id,
+                    "narrative": None,
+                    "error": str(exc),
+                    "errors": errs,
+                }
         if errs:
             return {"incident_id": incident_id, "narrative": None, "errors": errs}
+
         await conn.execute(
             """
             INSERT INTO narrative (incident_id, body, provider)
@@ -108,6 +131,29 @@ async def narrate_incident(incident_id: str) -> dict:
             json.dumps(body),
         )
         return {"incident_id": incident_id, "narrative": body}
+    finally:
+        await conn.close()
+
+
+@router.get("/incidents/{incident_id}/narrative")
+async def get_narrative(incident_id: str) -> dict:
+    conn = await asyncpg.connect(_dsn())
+    try:
+        row = await conn.fetchrow(
+            """
+            SELECT body, provider, created_at
+            FROM narrative WHERE incident_id = $1
+            """,
+            incident_id,
+        )
+        if not row:
+            return {"incident_id": incident_id, "narrative": None, "error": "not found"}
+        return {
+            "incident_id": incident_id,
+            "provider": row["provider"],
+            "created_at": row["created_at"],
+            "narrative": row["body"],
+        }
     finally:
         await conn.close()
 
@@ -132,7 +178,6 @@ async def get_incident_graph(incident_id: str) -> dict:
         )
         body = {}
         if snap and snap["body"]:
-            import json
             try:
                 body = json.loads(bytes(snap["body"]).decode())
             except Exception:
@@ -213,8 +258,6 @@ async def propose_action(incident_id: str) -> dict:
         pack = row["pack"]
         if isinstance(pack, str):
             pack = json.loads(pack)
-        body = await narrate(pack)
-        errs = validate_narrative(pack,body)
         suggestion = suggest_action(pack)
         await conn.execute(
             """
@@ -222,7 +265,7 @@ async def propose_action(incident_id: str) -> dict:
             VALUES ('causeway', $1, $2::jsonb, $3)
             """,
             incident_id,
-            __import__("json").dumps(suggestion),
+            json.dumps(suggestion),
             b"\x00",
         )
         return {"incident_id": incident_id, "suggested_action": suggestion, "applied": False}

@@ -1,4 +1,4 @@
-.PHONY: help up down build logs demo score graph health seed-gt feedback evidence action narrate
+.PHONY: help up down build logs demo score graph health seed-gt feedback evidence action narrate narrative
 
 API      ?= http://localhost:8000
 EXPECTED ?= svc:payment-svc
@@ -14,6 +14,10 @@ help:
 	@echo "  make graph     - print latest incident graph"
 	@echo "  make seed-gt   - insert payment_latency ground truth"
 	@echo "  make logs      - follow worker logs"
+	@echo "  make evidence  - print latest evidence pack"
+	@echo "  make action    - propose diagnostic action"
+	@echo "  make narrate   - generate OpenAI narrative"
+	@echo "  make narrative - fetch stored narrative"
 
 up:
 	docker compose up -d
@@ -74,4 +78,9 @@ action:
 narrate:
 	@INC=$(INC); \
 	echo "narrate $$INC"; \
-	curl -s -X POST "$(API)/api/v1/incidents/$$INC/narrate" | python3 -m json.tool
+	curl -sS -X POST "$(API)/api/v1/incidents/$$INC/narrate" | python3 -m json.tool
+
+narrative:
+	@INC=$(INC); \
+	echo "narrative $$INC"; \
+	curl -sS "$(API)/api/v1/incidents/$$INC/narrative" | python3 -m json.tool
