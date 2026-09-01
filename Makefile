@@ -1,13 +1,17 @@
-.PHONY: help up down build logs demo score graph health seed-gt feedback evidence action narrate narrative
+.PHONY: help up down build build-fast dns-fix logs demo score graph health seed-gt feedback evidence action narrate narrative
 
 API      ?= http://localhost:8000
 EXPECTED ?= svc:payment-svc
+# WSL2 + missing /etc/resolv.conf breaks BuildKit ([::1]:53). Legacy builder works.
+export DOCKER_BUILDKIT ?= 0
 
 help:
 	@echo "Targets:"
 	@echo "  make up        - start stack"
 	@echo "  make down      - stop stack"
 	@echo "  make build     - rebuild api + worker"
+	@echo "  make dns-fix   - fix WSL DNS (sudo once, then wsl --shutdown)"
+	@echo "  make verify-dns - test container DNS + API health"
 	@echo "  make health    - hit /healthz"
 	@echo "  make demo      - inject payment fault + load"
 	@echo "  make score     - score latest incident top-1"
@@ -26,12 +30,25 @@ down:
 	docker compose down
 
 build:
-	docker compose up -d --build causeway-api causeway-worker
+	DOCKER_BUILDKIT=0 docker compose up -d --build causeway-api causeway-worker
+
+build-fast:
+	DOCKER_BUILDKIT=1 docker compose up -d --build causeway-api causeway-worker
+
+dns-fix:
+	@echo "Run in WSL: sudo bash scripts/setup-wsl-dns.sh"
+	@echo "Then in PowerShell: wsl --shutdown"
+	@echo "Restart Docker Desktop, then: make build-fast"
+
+verify-dns:
+	bash scripts/verify-docker-dns.sh
 
 health:
 	curl -s $(API)/healthz | python3 -m json.tool
 
 demo:
+	@curl -sf -m 3 http://localhost:8081/ >/dev/null || { \
+	  echo "payment-svc not reachable on :8081 — run: make up"; exit 1; }
 	bash loadgen/fault_and_load.sh 90 500
 
 # latest incident id from API
