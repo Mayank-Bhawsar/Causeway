@@ -8,6 +8,12 @@ from narrator.validate import validate_narrative
 
 router = APIRouter(prefix="/api/v1", tags=["incidents"])
 
+def _parse_jsonb(value: object) -> object:
+    """Normalize jsonb from asyncpg (dict or JSON string) to Python object"""
+    if isinstance(value, str):
+        return json.loads(value)
+    return value
+
 def _dsn() -> str:
     return os.getenv(
         "DATABASE_URL_SYNC",
@@ -152,7 +158,7 @@ async def get_narrative(incident_id: str) -> dict:
             "incident_id": incident_id,
             "provider": row["provider"],
             "created_at": row["created_at"],
-            "narrative": row["body"],
+            "narrative": _parse_jsonb(row["body"]),
         }
     finally:
         await conn.close()
@@ -241,7 +247,7 @@ async def get_evidence(incident_id: str) -> dict:
         )
         if not row:
             return {"error": "no evidence pack"}
-        return {"incident_id": incident_id, "pack": row["pack"]}
+        return {"incident_id": incident_id, "pack": _parse_jsonb(row["pack"])}
     finally:
         await conn.close()
 
