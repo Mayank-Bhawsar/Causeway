@@ -1,7 +1,9 @@
-.PHONY: help up down build build-fast dns-fix logs demo score graph health seed-gt feedback evidence action narrate narrative
+.PHONY: help up down build build-fast dns-fix logs demo score graph health seed-gt feedback evidence action narrate narrative bench test
 
 API      ?= http://localhost:8000
 EXPECTED ?= svc:payment-svc
+BENCH_OUT ?= bench/out/report.json
+
 # WSL2 + missing /etc/resolv.conf breaks BuildKit ([::1]:53). Legacy builder works.
 export DOCKER_BUILDKIT ?= 0
 
@@ -101,3 +103,11 @@ narrative:
 	@INC=$(INC); \
 	echo "narrative $$INC"; \
 	curl -sS "$(API)/api/v1/incidents/$$INC/narrative" | python3 -m json.tool
+
+bench:
+	@mkdir -p bench/out
+	python3 -m bench.replay --out $(BENCH_OUT)
+	python3 -m bench.metrics --in $(BENCH_OUT) --assert-top1 1.0 --assert-top3 1.0
+	
+test:
+	python3 -m pytest narrator/test_validate.py -v
