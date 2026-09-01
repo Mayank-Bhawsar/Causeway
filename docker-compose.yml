@@ -1,3 +1,9 @@
+x-dns: &causeway-dns
+  dns:
+    - 192.168.65.7
+    - 1.1.1.1
+    - 8.8.8.8
+    
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -64,6 +70,7 @@ services:
       - "8000:8000"
     volumes:
       - ./api:/app/api
+      - ./narrator:/app/narrator
     depends_on:
       postgres:
         condition: service_healthy

@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from narrator.openai_narrator import narrate
 from actions.suggest import suggest_action
 from narrator.validate import validate_narrative
+from narrator.template_narrator import template_narrate
 
 router = APIRouter(prefix="/api/v1", tags=["incidents"])
 
@@ -88,11 +89,6 @@ async def get_candidates(incident_id: str) -> dict:
 
 @router.post("/incidents/{incident_id}/narrate")
 async def narrate_incident(incident_id: str) -> dict:
-    if not os.getenv("OPENAI_API_KEY"):
-        return {
-            "error": "OPENAI_API_KEY not set - narrative deferred",
-            "incident_id": incident_id,
-        }
     conn = await asyncpg.connect(_dsn())
     try:
         row = await conn.fetchrow(
@@ -102,43 +98,53 @@ async def narrate_incident(incident_id: str) -> dict:
         if not row:
             return {"error": "no evidence pack - run correlator first"}
 
-        pack = row["pack"]
-        if isinstance(pack, str):
-            pack = json.loads(pack)
+        pack = _parse_jsonb(row["pack"])
+        body: dict | None = None
+        provider = "openai"
+        llm_error: str | None = None
 
-        try:
-            body = await narrate(pack)
-        except Exception as exc:  # noqa: BLE001
-            return {"incident_id": incident_id, "narrative": None, "error": str(exc)}
-
-        errs = validate_narrative(pack, body)
-        if errs:
+        if os.getenv("OPENAI_API_KEY"):
             try:
-                body = await narrate(pack, validation_errors=errs)
+                body = await narrate(pack)
                 errs = validate_narrative(pack, body)
-            except Exception as exc:  # noqa: BLE001
-                return {
-                    "incident_id": incident_id,
-                    "narrative": None,
-                    "error": str(exc),
-                    "errors": errs,
-                }
-        if errs:
-            return {"incident_id": incident_id, "narrative": None, "errors": errs}
+                if errs:
+                    body = await narrate(pack, validation_errors=errs)
+                    errs = validate_narrative(pack, body)
+                if errs:
+                    body = None
+                    llm_error = f"validation failed: {errs}"
+            except Exception as exc:
+                body = None
+                llm_error = str(exc)
+        else:
+            llm_error = "OPENAI_API_KEY not set"
 
-        await conn.execute(
-            """
-            INSERT INTO narrative (incident_id, body, provider)
-            VALUES ($1, $2::jsonb, 'openai')
-            ON CONFLICT (incident_id) DO UPDATE
-            SET body = EXCLUDED.body, provider = EXCLUDED.provider
-            """,
-            incident_id,
-            json.dumps(body),
-        )
-        return {"incident_id": incident_id, "narrative": body}
+        if body is None:
+            body = template_narrate(pack)
+            provider = "template"
+            await _save_narrative(conn, incident_id, body, provider)
+            out = {"incident_id": incident_id, "narrative": body, "provider": provider}
+            if llm_error:
+                out["llm_fallback_reason"] = llm_error
+            return out
+
+        await _save_narrative(conn, incident_id, body, provider)
+        return {"incident_id": incident_id, "narrative": body, "provider": provider}
     finally:
         await conn.close()
+
+async def _save_narrative(conn, incident_id: str, body: dict, provider: str) -> None:
+    await conn.execute(
+        """
+        INSERT INTO narrative (incident_id, body, provider)
+        VALUES ($1, $2::jsonb, $3)
+        ON CONFLICT (incident_id) DO UPDATE
+        SET body = EXCLUDED.body, provider = EXCLUDED.provider
+        """,
+        incident_id,
+        json.dumps(body),
+        provider,
+    )
 
 
 @router.get("/incidents/{incident_id}/narrative")
@@ -261,9 +267,7 @@ async def propose_action(incident_id: str) -> dict:
         )
         if not row:
             return {"error": "no evidence pack"}
-        pack = row["pack"]
-        if isinstance(pack, str):
-            pack = json.loads(pack)
+        pack = _parse_jsonb(row["pack"])
         suggestion = suggest_action(pack)
         await conn.execute(
             """
