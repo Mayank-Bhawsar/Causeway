@@ -30,7 +30,7 @@ async def consume() -> None:
     )
     await consumer.start()
     print(f"worker listening on {TOPICS}", flush=True)
-    buf = windowBuffer(window_sec=int(os.getenv("CORR_WINDOW_SEC", "30")))
+    buf = windowBuffer(window_sec=int(os.getenv("CORR_WINDOW_SEC", "90")))
     try:
         async for msg in consumer:
             body = json.loads(msg.value.decode())

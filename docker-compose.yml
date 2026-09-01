@@ -3,7 +3,7 @@ x-dns: &causeway-dns
     - 192.168.65.7
     - 1.1.1.1
     - 8.8.8.8
-    
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -89,7 +89,7 @@ services:
       DETECT_LATENCY_MS: "200"
       DETECT_INTERVAL_SEC: "15"
       DATABASE_URL_SYNC: postgresql://causeway:causeway@postgres:5432/causeway
-      CORR_WINDOW_SEC: "30"
+      CORR_WINDOW_SEC: "90"
     depends_on:
       redpanda:
         condition: service_healthy
