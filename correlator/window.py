@@ -7,6 +7,8 @@ from evidence.build import build_evidence_pack
 
 from correlator.db import connect, create_incident, upsert_signal, insert_candidates
 from correlator.db import save_evidence_pack
+from correlator.affinity import pairwaise_distance
+from correlator.cluster import cluster_signals
 
 from localiser.rank import rank_by_severity
 from localiser.blame import rank_by_blame
@@ -58,6 +60,25 @@ class windowBuffer:
             edge_dicts = [dict(r) for r in edges]
             cands = rank_by_blame(self.signals, edge_dicts) or rank_by_severity(self.signals)
             await insert_candidates(conn, incident_id, cands)
+
+            dist = pairwaise_distance(self.signals, edge_dicts)
+            clusters = cluster_signals(self.signals,dist)
+
+            last_incident = None
+            for cluster in clusters:
+                incident_id = f"inc_{uuid.uuid4().hex[:12]}"
+                ids = [s["signal_id"] for s in cluster]
+                await create_incident(conn, incident_id, self.opened_at, now, ids)
+                cands = rank_by_blame(cluster, edge_dicts) or rank_by_severity(cluster)
+                await insert_candidates(conn, incident_id, cands)
+                pack = build_evidence_pack(incident_id, self.opened_at, now, cluster, cands, edge_dicts)
+                await save_evidence_pack(conn, incident_id, pack)
+                print(f"correlator: incident={incident_id} signals={len(ids)} cluster_size={len(cluster)}", flush=True)
+                last_incident = incident_id
+
+            self.signals.clear()
+            self.opened_at = None
+            return last_incident
 
             pack = build_evidence_pack(
                 incident_id, self.opened_at, now, self.signals, cands, edge_dicts
