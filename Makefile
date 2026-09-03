@@ -1,8 +1,11 @@
-.PHONY: help up down build build-fast dns-fix logs demo score graph health seed-gt feedback evidence action narrate narrative bench test
+.PHONY: help up down build build-fast dns-fix logs demo score graph health seed-gt feedback evidence action narrate narrative bench bench-correlate test
 
 API      ?= http://localhost:8000
 EXPECTED ?= svc:payment-svc
 BENCH_OUT ?= bench/out/report.json
+CORR_OUT ?= bench/out/correlate.json
+# Prefer project venv when present (WSL PEP 668 blocks system pip).
+PYTHON   ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
 
 # WSL2 + missing /etc/resolv.conf breaks BuildKit ([::1]:53). Legacy builder works.
 export DOCKER_BUILDKIT ?= 0
@@ -24,6 +27,9 @@ help:
 	@echo "  make action    - propose diagnostic action"
 	@echo "  make narrate   - generate OpenAI narrative"
 	@echo "  make narrative - fetch stored narrative"
+	@echo "  make bench     - replay fixtures + assert top1/top3"
+	@echo "  make bench-correlate - assert expected cluster counts"
+	@echo "  make test      - run validator unit tests"
 
 up:
 	docker compose up -d
@@ -106,8 +112,27 @@ narrative:
 
 bench:
 	@mkdir -p bench/out
-	python3 -m bench.replay --out $(BENCH_OUT)
-	python3 -m bench.metrics --in $(BENCH_OUT) --assert-top1 1.0 --assert-top3 1.0
-	
+	@if docker compose exec -T causeway-api python -c "import sklearn" >/dev/null 2>&1; then \
+	  docker compose exec -T causeway-api python -m bench.replay --out /tmp/report.json; \
+	  docker compose exec -T causeway-api python -m bench.metrics --in /tmp/report.json --assert-top1 1.0 --assert-top3 1.0; \
+	  docker compose exec -T causeway-api cat /tmp/report.json > $(BENCH_OUT); \
+	else \
+	  $(PYTHON) -m bench.replay --out $(BENCH_OUT); \
+	  $(PYTHON) -m bench.metrics --in $(BENCH_OUT) --assert-top1 1.0 --assert-top3 1.0; \
+	fi
+
+bench-correlate:
+	@mkdir -p bench/out
+	@if docker compose exec -T causeway-api python -c "import sklearn" >/dev/null 2>&1; then \
+	  docker compose exec -T causeway-api python -m bench.replay_correlate --out /tmp/correlate.json; \
+	  docker compose exec -T causeway-api cat /tmp/correlate.json > $(CORR_OUT); \
+	else \
+	  $(PYTHON) -m bench.replay_correlate --out $(CORR_OUT); \
+	fi
+
 test:
-	python3 -m pytest narrator/test_validate.py -v
+	@if docker compose exec -T causeway-api python -c "import pytest" >/dev/null 2>&1; then \
+	  docker compose exec -T causeway-api pytest narrator/test_validate.py -v; \
+	else \
+	  $(PYTHON) -m pytest narrator/test_validate.py -v; \
+	fi

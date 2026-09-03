@@ -1,0 +1,47 @@
+{
+  "scenario": "dual_unrelated",
+  "true_root": "svc:payment-svc",
+  "expected_incidents": 2,
+  "signals": [
+    {
+      "signal_id": "sig_pay_1",
+      "kind": "trace_latency_shift",
+      "node_id": "svc:payment-svc",
+      "severity": 0.5,
+      "onset_at": "2026-09-01T14:00:00.000000Z",
+      "observed_at": "2026-09-01T14:00:00.000000Z",
+      "payload": {}
+    },
+    {
+      "signal_id": "sig_checkout_1",
+      "kind": "trace_latency_shift",
+      "node_id": "svc:checkout-svc",
+      "severity": 0.4,
+      "onset_at": "2026-09-01T14:00:05.000000Z",
+      "observed_at": "2026-09-01T14:00:05.000000Z",
+      "payload": {}
+    },
+    {
+      "signal_id": "sig_auth_1",
+      "kind": "trace_latency_shift",
+      "node_id": "svc:auth-svc",
+      "severity": 0.6,
+      "onset_at": "2026-09-01T14:00:02.000000Z",
+      "observed_at": "2026-09-01T14:00:02.000000Z",
+      "payload": {}
+    },
+    {
+      "signal_id": "sig_config_1",
+      "kind": "trace_latency_shift",
+      "node_id": "svc:config-svc",
+      "severity": 0.45,
+      "onset_at": "2026-09-01T14:00:08.000000Z",
+      "observed_at": "2026-09-01T14:00:08.000000Z",
+      "payload": {}
+    }
+  ],
+  "edges": [
+    {"src": "svc:checkout-svc", "dst": "svc:payment-svc", "calls": 40, "call_share": 0.5},
+    {"src": "svc:auth-svc", "dst": "svc:config-svc", "calls": 20, "call_share": 0.3}
+  ]
+}

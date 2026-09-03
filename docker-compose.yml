@@ -71,6 +71,10 @@ services:
     volumes:
       - ./api:/app/api
       - ./narrator:/app/narrator
+      - ./correlator:/app/correlator
+      - ./localiser:/app/localiser
+      - ./bench:/app/bench
+      - ./evidence:/app/evidence
     depends_on:
       postgres:
         condition: service_healthy
@@ -90,6 +94,11 @@ services:
       DETECT_INTERVAL_SEC: "15"
       DATABASE_URL_SYNC: postgresql://causeway:causeway@postgres:5432/causeway
       CORR_WINDOW_SEC: "90"
+    volumes:
+      - ./correlator:/app/correlator
+      - ./localiser:/app/localiser
+      - ./evidence:/app/evidence
+      - ./worker:/app/worker
     depends_on:
       redpanda:
         condition: service_healthy

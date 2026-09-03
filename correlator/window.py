@@ -3,24 +3,26 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+
 from evidence.build import build_evidence_pack
 
 from correlator.db import connect, create_incident, upsert_signal, insert_candidates
 from correlator.db import save_evidence_pack
-from correlator.affinity import pairwaise_distance
+from correlator.affinity import pairwise_distance
 from correlator.cluster import cluster_signals
 
 from localiser.rank import rank_by_severity
 from localiser.blame import rank_by_blame
 
+
 @dataclass
 class windowBuffer:
-    window_sec : int = 90
+    window_sec: int = 90
     signals: list[dict] = field(default_factory=list)
     opened_at: datetime | None = None
 
     async def add(self, signal: dict) -> str | None:
-        """Add signal; return incident_id if a window was flushed."""
+        """Add signal; return last incident_id if a window was flushed."""
         now = datetime.now(timezone.utc)
         if self.opened_at is None:
             self.opened_at = now
@@ -43,10 +45,6 @@ class windowBuffer:
         if owns_conn:
             conn = await connect()
         try:
-            incident_id = f"inc_{uuid.uuid4().hex[:12]}"
-            ids = [s["signal_id"] for s in self.signals]
-            await create_incident(conn, incident_id, self.opened_at, now, ids)
-
             edges = await conn.fetch(
                 """
                 SELECT src, dst, calls, call_share
@@ -56,13 +54,9 @@ class windowBuffer:
                 LIMIT 200
                 """
             )
-
             edge_dicts = [dict(r) for r in edges]
-            cands = rank_by_blame(self.signals, edge_dicts) or rank_by_severity(self.signals)
-            await insert_candidates(conn, incident_id, cands)
-
-            dist = pairwaise_distance(self.signals, edge_dicts)
-            clusters = cluster_signals(self.signals,dist)
+            dist = pairwise_distance(self.signals, edge_dicts)
+            clusters = cluster_signals(self.signals, dist)
 
             last_incident = None
             for cluster in clusters:
@@ -71,31 +65,22 @@ class windowBuffer:
                 await create_incident(conn, incident_id, self.opened_at, now, ids)
                 cands = rank_by_blame(cluster, edge_dicts) or rank_by_severity(cluster)
                 await insert_candidates(conn, incident_id, cands)
-                pack = build_evidence_pack(incident_id, self.opened_at, now, cluster, cands, edge_dicts)
+                pack = build_evidence_pack(
+                    incident_id, self.opened_at, now, cluster, cands, edge_dicts
+                )
                 await save_evidence_pack(conn, incident_id, pack)
-                print(f"correlator: incident={incident_id} signals={len(ids)} cluster_size={len(cluster)}", flush=True)
+                method = (cands[0]["features"].get("method") if cands else None)
+                print(
+                    f"correlator: incident={incident_id} signals={len(ids)} "
+                    f"cluster_size={len(cluster)} method={method} "
+                    f"nodes={sorted({s['node_id'] for s in cluster})}",
+                    flush=True,
+                )
                 last_incident = incident_id
 
             self.signals.clear()
             self.opened_at = None
             return last_incident
-
-            pack = build_evidence_pack(
-                incident_id, self.opened_at, now, self.signals, cands, edge_dicts
-            )
-            await save_evidence_pack(conn, incident_id, pack)
-
-            print(
-                f"correlator: incident={incident_id} signals={len(ids)} "
-                f"method={(cands[0]['features'].get('method') if cands else None)}"
-                f"nodes={sorted({s['node_id'] for s in self.signals})}",
-                flush=True,
-            )
-            self.signals.clear()
-            self.opened_at = None
-            return incident_id
         finally:
             if owns_conn and conn is not None:
                 await conn.close()
-
-
