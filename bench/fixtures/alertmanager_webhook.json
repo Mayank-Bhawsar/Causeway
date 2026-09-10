@@ -1,0 +1,27 @@
+{
+  "receiver": "causeway",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "HighServiceLatency",
+        "service_name": "payment-svc",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "High latency on payment-svc"
+      },
+      "startsAt": "2026-09-01T12:00:00.000Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "fingerprint": "test-fp-payment-latency",
+      "generatorURL": "http://vmalert:8880/vmalert/alert?group_id=0&alert_id=0"
+    }
+  ],
+  "groupLabels": {},
+  "commonLabels": {},
+  "commonAnnotations": {},
+  "externalURL": "http://alertmanager:9093",
+  "version": "4",
+  "groupKey": "{}:{alertname=\"HighServiceLatency\"}"
+}

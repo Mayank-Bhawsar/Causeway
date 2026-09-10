@@ -221,16 +221,16 @@ Different kinds go to different Kafka topics (traces vs alerts).
 | **B** | Replay tests, `make bench` checks top-1 root cause | **Done** |
 | **C** | Smart grouping (graph + clustering), multiple incidents | **Done** |
 | **D** | Smart detectors (baseline + when it started), error detector | **Done** |
-| **E** | Alerts from vmalert → API → Kafka (polish + docs) | **Partly done** |
-| **F** | Slack, policy on actions, maybe saturation alerts | **Not started** |
+| **E** | Alerts from vmalert → API → Kafka; verify script; dedupe alert+detector | **Done** |
+| **F** | Slack on incident; action policy (OPA-ready); traffic helper | **Done (Slack needs webhook URL)** |
 
 ---
 
 ## What to build next (roadmap)
 
-1. Finish **Phase E** — prove vmalert → Alertmanager → API → worker end to end with steady traffic.  
-2. **Phase F** — notify Slack; gate actions with policy.  
-3. More **bench scenarios** and run tests in CI.
+1. **Live demo proof** — `make up` → `make traffic` (background) → `make demo` → `make score`.  
+2. **Saturation detector** (optional) — `SignalKind.SATURATION` in code, no detector yet.  
+3. More **bench scenarios** and CI running `make verify-all`.
 
 When you finish something, write it in **Build log** below.
 
@@ -247,7 +247,10 @@ make logs            # watch worker (detected … correlator flushed …)
 make score           # is top guess = payment-svc?
 make narrate         # generate story (OpenAI or template)
 make narrative       # read saved story
-make action          # suggested diagnostic step only
+make action          # suggested diagnostic step + policy check
+make verify-alerts  # test Alertmanager webhook → API
+make verify-all     # test + bench + verify-alerts
+make traffic        # keep mesh busy for vmalert (120s default)
 ```
 
 After editing detectors: `docker compose restart causeway-worker`
@@ -294,7 +297,7 @@ Validator checks every claim against IDs in the evidence pack (`EV-SIG-0001`, et
 | Date | What changed |
 |------|----------------|
 | 2026-09-10 | Phases A–D done; detectors fixed; `make test` 9/9. |
-| _add here_ | Phase E complete, Slack, etc. |
+| 2026-09-10 | Phase E/F: dedupe, verify-alerts, traffic, Slack notify, action policy, OPA rego stub. |
 
 ---
 

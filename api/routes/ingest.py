@@ -59,6 +59,8 @@ async def ingest_alerts(request: Request) -> dict:
         
         severity_map = {"critical": 0.95, "warning": 0.7, "info":0.4}
         sev = severity_map.get(str(labels.get("severity", "warning")).lower(), 0.7)
+        alertname = labels.get("alertname") or "alert"
+        stable_fp = f"alert:{alertname}:{node_id}"
 
         signal = Signal(
             signal_id=f"sig_{uuid.uuid4().hex[:16]}",
@@ -67,7 +69,7 @@ async def ingest_alerts(request: Request) -> dict:
             severity=sev,
             onset_at=onset,
             observed_at=now,
-            fingerprint=alert.get("fingerprint"),
+            fingerprint=stable_fp,
             payload={
                 "alertname": labels.get("alertname"),
                 "labels": labels,

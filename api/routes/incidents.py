@@ -4,6 +4,7 @@ import json
 from fastapi import APIRouter
 from narrator.openai_narrator import narrate
 from actions.suggest import suggest_action
+from actions.policy import evaluate_action
 from narrator.validate import validate_narrative
 from narrator.template_narrator import template_narrate
 
@@ -269,15 +270,21 @@ async def propose_action(incident_id: str) -> dict:
             return {"error": "no evidence pack"}
         pack = _parse_jsonb(row["pack"])
         suggestion = suggest_action(pack)
+        policy = evaluate_action(suggestion)
         await conn.execute(
             """
             INSERT INTO audit_log (actor, incident_id, action, row_hash)
             VALUES ('causeway', $1, $2::jsonb, $3)
             """,
             incident_id,
-            json.dumps(suggestion),
+            json.dumps({"suggestion": suggestion, "policy": policy}),
             b"\x00",
         )
-        return {"incident_id": incident_id, "suggested_action": suggestion, "applied": False}
+        return {
+            "incident_id": incident_id,
+            "suggested_action": suggestion,
+            "policy": policy,
+            "applied": False,
+        }
     finally:
         await conn.close()

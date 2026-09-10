@@ -1,4 +1,4 @@
-.PHONY: help up down build build-fast dns-fix logs demo score graph health seed-gt feedback evidence action narrate narrative bench bench-correlate test
+.PHONY: help up down build build-fast dns-fix logs demo score graph health seed-gt feedback evidence action narrate narrative bench bench-correlate test verify-alerts traffic verify-all
 
 API      ?= http://localhost:8000
 EXPECTED ?= svc:payment-svc
@@ -17,6 +17,9 @@ help:
 	@echo "  make build     - rebuild api + worker"
 	@echo "  make dns-fix   - fix WSL DNS (sudo once, then wsl --shutdown)"
 	@echo "  make verify-dns - test container DNS + API health"
+	@echo "  make verify-alerts - POST sample Alertmanager webhook to API"
+	@echo "  make traffic     - steady load on mesh (seconds, default 120)"
+	@echo "  make verify-all  - test + bench + verify-alerts"
 	@echo "  make health    - hit /healthz"
 	@echo "  make demo      - inject payment fault + load"
 	@echo "  make score     - score latest incident top-1"
@@ -50,6 +53,15 @@ dns-fix:
 
 verify-dns:
 	bash scripts/verify-docker-dns.sh
+
+verify-alerts:
+	bash scripts/verify_alerts.sh
+
+traffic:
+	bash loadgen/traffic.sh http://localhost:8080/ $(or $(DURATION),120)
+
+verify-all: test bench verify-alerts
+	@echo verify_all_ok
 
 health:
 	curl -s $(API)/healthz | python3 -m json.tool
@@ -132,7 +144,7 @@ bench-correlate:
 
 test:
 	@if docker compose exec -T causeway-api python -c "import pytest" >/dev/null 2>&1; then \
-	  docker compose exec -T causeway-api pytest narrator/test_validate.py detectors/test_detectors.py -v; \
+	  docker compose exec -T causeway-api pytest narrator/test_validate.py detectors/test_detectors.py correlator/test_dedupe.py actions/test_policy.py -v; \
 	else \
-	  $(PYTHON) -m pytest narrator/test_validate.py detectors/test_detectors.py -v; \
+	  $(PYTHON) -m pytest narrator/test_validate.py detectors/test_detectors.py correlator/test_dedupe.py actions/test_policy.py -v; \
 	fi

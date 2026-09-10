@@ -76,6 +76,7 @@ services:
       - ./bench:/app/bench
       - ./evidence:/app/evidence
       - ./detectors:/app/detectors
+      - ./actions:/app/actions
     depends_on:
       postgres:
         condition: service_healthy
@@ -97,6 +98,8 @@ services:
       DETECT_INTERVAL_SEC: "15"
       DATABASE_URL_SYNC: postgresql://causeway:causeway@postgres:5432/causeway
       CORR_WINDOW_SEC: "90"
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      CAUSEWAY_PUBLIC_URL: ${CAUSEWAY_PUBLIC_URL:-http://localhost:8000}
     volumes:
       - ./correlator:/app/correlator
       - ./localiser:/app/localiser

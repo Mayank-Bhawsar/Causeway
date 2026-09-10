@@ -107,7 +107,13 @@ async def upsert_signal(conn: asyncpg.Connection, s: dict) -> None:
         INSERT INTO signal (
         signal_id, kind, node_id, severity, onset_at, observed_at, fingerprint, payload
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
-        ON CONFLICT (signal_id) DO NOTHING
+        ON CONFLICT (signal_id) DO UPDATE SET
+          kind = EXCLUDED.kind,
+          severity = GREATEST(signal.severity, EXCLUDED.severity),
+          onset_at = LEAST(signal.onset_at, EXCLUDED.onset_at),
+          observed_at = GREATEST(signal.observed_at, EXCLUDED.observed_at),
+          fingerprint = COALESCE(EXCLUDED.fingerprint, signal.fingerprint),
+          payload = EXCLUDED.payload
         """,
         s["signal_id"],
         s["kind"],

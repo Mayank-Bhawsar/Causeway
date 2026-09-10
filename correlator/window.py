@@ -10,6 +10,8 @@ from correlator.db import connect, create_incident, upsert_signal, insert_candid
 from correlator.db import save_evidence_pack
 from correlator.affinity import pairwise_distance
 from correlator.cluster import cluster_signals
+from correlator.dedupe import merge_into_buffer
+from correlator.notify import notify_incident_created
 
 from localiser.rank import rank_by_severity
 from localiser.blame import rank_by_blame
@@ -26,11 +28,11 @@ class windowBuffer:
         now = datetime.now(timezone.utc)
         if self.opened_at is None:
             self.opened_at = now
-        self.signals.append(signal)
+        persisted, _merged = merge_into_buffer(self.signals, signal)
 
         conn = await connect()
         try:
-            await upsert_signal(conn, signal)
+            await upsert_signal(conn, persisted)
             if (now - self.opened_at) >= timedelta(seconds=self.window_sec):
                 return await self.flush(conn, now)
         finally:
@@ -70,11 +72,19 @@ class windowBuffer:
                 )
                 await save_evidence_pack(conn, incident_id, pack)
                 method = (cands[0]["features"].get("method") if cands else None)
+                nodes = sorted({s["node_id"] for s in cluster})
                 print(
                     f"correlator: incident={incident_id} signals={len(ids)} "
                     f"cluster_size={len(cluster)} method={method} "
-                    f"nodes={sorted({s['node_id'] for s in cluster})}",
+                    f"nodes={nodes}",
                     flush=True,
+                )
+                top = cands[0]["node_id"] if cands else None
+                await notify_incident_created(
+                    incident_id,
+                    signal_count=len(ids),
+                    nodes=nodes,
+                    top_cause=top,
                 )
                 last_incident = incident_id
 
