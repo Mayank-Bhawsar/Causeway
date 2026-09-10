@@ -229,6 +229,7 @@ Different kinds go to different Kafka topics (traces vs alerts).
 | **G** | Saturation detector; error bench fixture; verify-live; GitHub CI | **Done** |
 | **H1** | vmagent scrapes mesh `/metrics` → VictoriaMetrics | **Done** |
 | **H2** | Saturation fires on `meshgen_fault_active` (injected fault) | **Done** |
+| **H3** | `make verify-alerts-live` — vmalert → AM → API → Kafka | **Done** |
 
 ---
 
@@ -236,7 +237,6 @@ Different kinds go to different Kafka topics (traces vs alerts).
 
 | Phase | Goal | Ideas |
 |-------|------|--------|
-| **H3** | `verify-alerts-live` under steady traffic | vmalert + Alertmanager path |
 | **I** | Operator UX | Incident list UI or Grafana dashboard |
 | **J** | Learning loop | Use `feedback` table to tune ranker weights |
 | **K** | Production hardening | API auth, multi-worker Kafka consumer group |
@@ -260,6 +260,7 @@ make narrate         # generate story (OpenAI or template)
 make narrative       # read saved story
 make action          # suggested diagnostic step + policy check
 make verify-alerts  # test Alertmanager webhook → API
+make verify-alerts-live  # live vmalert path (~2-3 min, needs make up)
 make verify-all     # test + bench + verify-alerts
 make traffic        # keep mesh busy for vmalert (120s default)
 make verify-mesh-metrics  # vmagent → VM (needs make up + ~30s scrape)
@@ -314,6 +315,7 @@ Validator checks every claim against IDs in the evidence pack (`EV-SIG-0001`, et
 | 2026-09-10 | Phase G: saturation detector, checkout_errors bench, verify-live, GitHub CI, OPA compose profile. |
 | 2026-09-10 | Phase H1: vmagent scrapes meshgen `/metrics` into VictoriaMetrics. |
 | 2026-09-10 | Phase H2: saturation detector uses `meshgen_fault_active` with stable onset. |
+| 2026-09-10 | Phase H3: verify-alerts-live (vmalert → Alertmanager → Kafka). |
 
 ---
 

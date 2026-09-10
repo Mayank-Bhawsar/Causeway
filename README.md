@@ -25,5 +25,6 @@ Optional: `SLACK_WEBHOOK_URL` in `.env` for incident notifications. Optional: `O
 ```bash
 make verify-all    # unit tests + bench + alert ingest + mesh metrics in VM
 make verify-mesh-metrics   # after make up, wait ~30s for first scrape
+make verify-alerts-live    # vmalert + fault + load → Kafka (~2-3 min)
 make verify-live   # live mesh demo + top-1 score (~3 min, needs make up)
 ```

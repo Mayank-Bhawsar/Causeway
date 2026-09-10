@@ -13,6 +13,7 @@ COPY narrator ./narrator
 COPY actions ./actions
 COPY bench ./bench
 COPY worker ./worker
+COPY scripts ./scripts
 
 RUN pip install --no-cache-dir -e ".[dev]"
 

@@ -1,4 +1,4 @@
-.PHONY: help up down build build-fast dns-fix logs demo score graph health seed-gt feedback evidence action narrate narrative bench bench-correlate test verify-alerts traffic verify-all verify-live verify-mesh-metrics
+.PHONY: help up down build build-fast dns-fix logs demo score graph health seed-gt feedback evidence action narrate narrative bench bench-correlate test verify-alerts verify-alerts-live traffic verify-all verify-live verify-mesh-metrics
 
 API      ?= http://localhost:8000
 EXPECTED ?= svc:payment-svc
@@ -18,6 +18,7 @@ help:
 	@echo "  make dns-fix   - fix WSL DNS (sudo once, then wsl --shutdown)"
 	@echo "  make verify-dns - test container DNS + API health"
 	@echo "  make verify-alerts - POST sample Alertmanager webhook to API"
+	@echo "  make verify-alerts-live - vmalert path under fault+load (~2-3 min)"
 	@echo "  make traffic     - steady load on mesh (seconds, default 120)"
 	@echo "  make verify-all  - test + bench + verify-alerts"
 	@echo "  make verify-live - mesh fault + wait + score top-1 (slow ~3 min)"
@@ -58,6 +59,9 @@ verify-dns:
 
 verify-alerts:
 	bash scripts/verify_alerts.sh
+
+verify-alerts-live:
+	bash scripts/verify_alerts_live.sh
 
 traffic:
 	bash loadgen/traffic.sh http://localhost:8080/ $(or $(DURATION),120)
