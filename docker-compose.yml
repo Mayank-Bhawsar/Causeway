@@ -95,6 +95,8 @@ services:
       DETECT_LATENCY_MS: "200"
       DETECT_Z: "3.0"
       DETECT_MIN_SAMPLES: "3"
+      DETECT_SAT_Z: "3.0"
+      DETECT_SAT_MIN_CALLS: "5"
       DETECT_INTERVAL_SEC: "15"
       DATABASE_URL_SYNC: postgresql://causeway:causeway@postgres:5432/causeway
       CORR_WINDOW_SEC: "90"
@@ -316,6 +318,17 @@ services:
     ports: 
       - "8880:8880"
 
+  opa:
+    profiles: ["opa"]
+    image: openpolicyagent/opa:0.70.0
+    command:
+      - run
+      - --server
+      - /policies
+    volumes:
+      - ./deploy/opa:/policies:ro
+    ports:
+      - "8181:8181"
 
   
 volumes:

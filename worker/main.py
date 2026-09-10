@@ -6,6 +6,7 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
 from detectors.latency import detect_latency_signals
 from detectors.errors import detect_error_signals
+from detectors.saturation import detect_saturation_signals
 from correlator.window import windowBuffer
 from correlator.db import connect
 from topology.persist import refresh_topology
@@ -21,6 +22,7 @@ TOPICS = [
 DETECTORS = (
     detect_latency_signals,
     detect_error_signals,
+    detect_saturation_signals,
 )
 
 
@@ -66,10 +68,11 @@ async def detect_loop() -> None:
                             value=signal.model_dump_json().encode(),
                         )
                         z = (signal.payload or {}).get("z_score")
+                        extra = (signal.payload or {}).get("calls_per_min")
                         print(
                             f"detected topic={signal.kafka_topic()} "
                             f"kind={signal.kind.value} node={signal.node_id} "
-                            f"sev={signal.severity:.2f} z={z}",
+                            f"sev={signal.severity:.2f} z={z} cpm={extra}",
                             flush=True,
                         )
             finally:

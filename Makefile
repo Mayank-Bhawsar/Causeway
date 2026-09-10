@@ -1,4 +1,4 @@
-.PHONY: help up down build build-fast dns-fix logs demo score graph health seed-gt feedback evidence action narrate narrative bench bench-correlate test verify-alerts traffic verify-all
+.PHONY: help up down build build-fast dns-fix logs demo score graph health seed-gt feedback evidence action narrate narrative bench bench-correlate test verify-alerts traffic verify-all verify-live
 
 API      ?= http://localhost:8000
 EXPECTED ?= svc:payment-svc
@@ -20,6 +20,7 @@ help:
 	@echo "  make verify-alerts - POST sample Alertmanager webhook to API"
 	@echo "  make traffic     - steady load on mesh (seconds, default 120)"
 	@echo "  make verify-all  - test + bench + verify-alerts"
+	@echo "  make verify-live - mesh fault + wait + score top-1 (slow ~3 min)"
 	@echo "  make health    - hit /healthz"
 	@echo "  make demo      - inject payment fault + load"
 	@echo "  make score     - score latest incident top-1"
@@ -62,6 +63,9 @@ traffic:
 
 verify-all: test bench verify-alerts
 	@echo verify_all_ok
+
+verify-live:
+	bash scripts/verify_live.sh
 
 health:
 	curl -s $(API)/healthz | python3 -m json.tool

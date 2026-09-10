@@ -20,4 +20,9 @@ make narrative   # read stored narrative after narrate succeeds
 
 Set `OPENAI_API_KEY` in `.env`. The API container must reach `api.openai.com` (fix WSL/Docker DNS if you see `APIConnectionError`).
 
-Optional: `SLACK_WEBHOOK_URL` in `.env` for incident notifications. Optional: `OPA_URL` for external policy (`deploy/opa/policy.rego`).
+Optional: `SLACK_WEBHOOK_URL` in `.env` for incident notifications. Optional: `OPA_URL` for external policy (`deploy/opa/policy.rego`); start OPA with `docker compose --profile opa up -d opa`.
+
+```bash
+make verify-all    # unit tests + bench + alert ingest
+make verify-live   # live mesh demo + top-1 score (~3 min, needs make up)
+```

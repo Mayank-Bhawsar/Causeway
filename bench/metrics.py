@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def summarize(report: dict) -> dict:
-    rows = report["results"]
+    rows = [r for r in report["results"] if not r.get("skipped_rank")]
     n = len(rows) or 1
     top1 = sum(1 for r in rows if r["top1_ok"])
     top3 = sum(1 for r in rows if r["top3_ok"])

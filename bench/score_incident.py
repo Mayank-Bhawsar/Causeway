@@ -24,11 +24,13 @@ async def main(incident_id: str, expected: str) -> None:
         )
         if not row:
             print("FAIL: no candidates")
-            return
+            raise SystemExit(1)
         top = row["node_id"]
         ok = top == expected
         print(f"incident={incident_id} top1={top} expected={expected} ok={ok}")
         print(f"score={row['score']} features={row['features']}")
+        if not ok:
+            raise SystemExit(1)
     finally:
         await conn.close()
 

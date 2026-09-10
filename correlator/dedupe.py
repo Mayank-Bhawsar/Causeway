@@ -7,6 +7,7 @@ from localiser.blame import _as_dt
 # Same service + latency-related kinds collapse to one slot in the correlator window.
 _LATENCY_KINDS = frozenset({"alert", "trace_latency_shift"})
 _ERROR_KINDS = frozenset({"trace_error_shift"})
+_SATURATION_KINDS = frozenset({"saturation"})
 
 
 def dedupe_key(signal: dict) -> str:
@@ -16,6 +17,8 @@ def dedupe_key(signal: dict) -> str:
         return f"anomaly:latency:{node}"
     if kind in _ERROR_KINDS:
         return f"anomaly:error:{node}"
+    if kind in _SATURATION_KINDS:
+        return f"anomaly:saturation:{node}"
     fp = signal.get("fingerprint")
     if fp:
         return str(fp)

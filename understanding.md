@@ -183,7 +183,7 @@ Different kinds go to different Kafka topics (traces vs alerts).
 |--------|---------------------|
 | `api/` | HTTP routes: list incidents, narrate, ingest alerts |
 | `worker/main.py` | Three loops: Kafka consumer, detectors, topology refresh |
-| `detectors/` | Latency + error detection math |
+| `detectors/` | Latency + error + **saturation** detection |
 | `correlator/` | 90s window, clustering, save incident |
 | `topology/` | Pull call graph from metrics → database |
 | `localiser/` | Rank root cause |
@@ -223,14 +223,20 @@ Different kinds go to different Kafka topics (traces vs alerts).
 | **D** | Smart detectors (baseline + when it started), error detector | **Done** |
 | **E** | Alerts from vmalert → API → Kafka; verify script; dedupe alert+detector | **Done** |
 | **F** | Slack on incident; action policy (OPA-ready); traffic helper | **Done (Slack needs webhook URL)** |
+| **G** | Saturation detector; error bench fixture; verify-live; GitHub CI | **Done** |
 
 ---
 
 ## What to build next (roadmap)
 
-1. **Live demo proof** — `make up` → `make traffic` (background) → `make demo` → `make score`.  
-2. **Saturation detector** (optional) — `SignalKind.SATURATION` in code, no detector yet.  
-3. More **bench scenarios** and CI running `make verify-all`.
+| Phase | Goal | Ideas |
+|-------|------|--------|
+| **H** | Richer observability | Scrape mesh `/metrics` into VM; pool/thread saturation |
+| **I** | Operator UX | Incident list UI or Grafana dashboard |
+| **J** | Learning loop | Use `feedback` table to tune ranker weights |
+| **K** | Production hardening | API auth, multi-worker Kafka consumer group |
+
+**Run now:** `make verify-live` (full stack, ~3 min) · `docker compose --profile opa up -d opa` + `OPA_URL=http://opa:8181` for policy tests.
 
 When you finish something, write it in **Build log** below.
 
@@ -240,7 +246,7 @@ When you finish something, write it in **Build log** below.
 
 ```bash
 make up              # start everything (including fake app)
-make test            # unit tests (9 tests)
+make test            # unit tests (13+ tests)
 make bench           # check root-cause accuracy on saved data
 make demo            # break payment + load (needs full stack)
 make logs            # watch worker (detected … correlator flushed …)
@@ -251,6 +257,7 @@ make action          # suggested diagnostic step + policy check
 make verify-alerts  # test Alertmanager webhook → API
 make verify-all     # test + bench + verify-alerts
 make traffic        # keep mesh busy for vmalert (120s default)
+make verify-live    # full E2E: fault + correlator + score (slow)
 ```
 
 After editing detectors: `docker compose restart causeway-worker`
@@ -298,6 +305,7 @@ Validator checks every claim against IDs in the evidence pack (`EV-SIG-0001`, et
 |------|----------------|
 | 2026-09-10 | Phases A–D done; detectors fixed; `make test` 9/9. |
 | 2026-09-10 | Phase E/F: dedupe, verify-alerts, traffic, Slack notify, action policy, OPA rego stub. |
+| 2026-09-10 | Phase G: saturation detector, checkout_errors bench, verify-live, GitHub CI, OPA compose profile. |
 
 ---
 

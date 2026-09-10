@@ -55,6 +55,9 @@ def main() -> None:
 
     results = []
     for path in sorted(args.fixtures.glob("*.json")):
+        fx = json.loads(path.read_text())
+        if "signals" not in fx or "true_root" not in fx:
+            continue
         results.append(replay_fixture(path))
 
     report = {"results": results, "n": len(results)}

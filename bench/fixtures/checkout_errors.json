@@ -1,0 +1,30 @@
+{
+  "scenario": "checkout_errors",
+  "true_root": "svc:checkout-svc",
+  "expected_incidents": 1,
+  "blast": ["svc:frontend"],
+  "signals": [
+    {
+      "signal_id": "sig_err_1",
+      "kind": "trace_error_shift",
+      "node_id": "svc:checkout-svc",
+      "severity": 0.62,
+      "onset_at": "2026-09-02T10:00:00.000000Z",
+      "observed_at": "2026-09-02T10:00:05.000000Z",
+      "payload": {"error_ratio": 0.35}
+    },
+    {
+      "signal_id": "sig_err_2",
+      "kind": "trace_error_shift",
+      "node_id": "svc:frontend",
+      "severity": 0.38,
+      "onset_at": "2026-09-02T10:00:12.000000Z",
+      "observed_at": "2026-09-02T10:00:12.000000Z",
+      "payload": {"error_ratio": 0.12}
+    }
+  ],
+  "edges": [
+    {"src": "svc:frontend", "dst": "svc:checkout-svc", "calls": 80, "call_share": 0.1},
+    {"src": "svc:checkout-svc", "dst": "svc:payment-svc", "calls": 75, "call_share": 0.09}
+  ]
+}
