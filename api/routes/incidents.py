@@ -268,6 +268,13 @@ async def submit_feedback(incident_id: str, body: dict) -> dict:
             """,
             incident_id, body["actual_root"],
         )
+        top1 = await conn.fetchrow(
+            """
+            SELECT node_id, rank FROM cause_candidate
+            WHERE incident_id=$1 ORDER BY rank LIMIT 1
+            """,
+            incident_id,
+        )
         await conn.execute(
             """
             INSERT INTO feedback (incident_id, actual_root, correct_rank, submitted_by)
@@ -281,7 +288,14 @@ async def submit_feedback(incident_id: str, body: dict) -> dict:
             top["rank"] if top else None,
             body.get("submitted_by", "local"),
         )
-        return {"ok": True, "correct_rank": top["rank"] if top else None}
+        predicted = top1["node_id"] if top1 else None
+        actual = body["actual_root"]
+        return {
+            "ok": True,
+            "correct_rank": top["rank"] if top else None,
+            "predicted_top1": predicted,
+            "top1_ok": predicted == actual if predicted else False,
+        }
     finally:
         await conn.close()
 

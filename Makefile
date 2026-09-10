@@ -1,4 +1,4 @@
-.PHONY: help up down build build-fast dns-fix logs demo score graph health seed-gt feedback evidence action narrate narrative bench bench-correlate test verify-alerts verify-alerts-live traffic verify-all verify-live verify-mesh-metrics ui
+.PHONY: help up down build build-fast dns-fix logs demo score graph health seed-gt feedback feedback-report evidence action narrate narrative bench bench-correlate test verify-alerts verify-alerts-live traffic verify-all verify-live verify-mesh-metrics ui
 
 API      ?= http://localhost:8000
 EXPECTED ?= svc:payment-svc
@@ -27,7 +27,8 @@ help:
 	@echo "  make demo      - inject payment fault + load"
 	@echo "  make score     - score latest incident top-1"
 	@echo "  make graph     - print latest incident graph"
-	@echo "  make seed-gt   - insert payment_latency ground truth"
+	@echo "  make feedback    - submit sample feedback for latest incident"
+	@echo "  make feedback-report - RCA quality stats from feedback table"
 	@echo "  make logs      - follow worker logs"
 	@echo "  make evidence  - print latest evidence pack"
 	@echo "  make action    - propose diagnostic action"
@@ -117,6 +118,13 @@ feedback:
 	  -d '{"actual_root":"svc:payment-svc","submitted_by":"local"}' \
 	  | python3 -m json.tool
 
+feedback-report:
+	@if docker compose exec -T causeway-api python -c "import asyncpg" >/dev/null 2>&1; then \
+	  docker compose exec -T causeway-api python -m bench.feedback_report; \
+	else \
+	  $(PYTHON) -m bench.feedback_report; \
+	fi
+
 evidence:
 	@INC=$(INC); \
 	echo "evidence $$INC"; \
@@ -159,7 +167,7 @@ bench-correlate:
 
 test:
 	@if docker compose exec -T causeway-api python -c "import pytest" >/dev/null 2>&1; then \
-	  docker compose exec -T causeway-api pytest narrator/test_validate.py detectors/test_detectors.py detectors/test_saturation_fault.py correlator/test_dedupe.py actions/test_policy.py -v; \
+	  docker compose exec -T causeway-api pytest narrator/test_validate.py detectors/test_detectors.py detectors/test_saturation_fault.py correlator/test_dedupe.py actions/test_policy.py localiser/test_blame_weights.py -v; \
 	else \
-	  $(PYTHON) -m pytest narrator/test_validate.py detectors/test_detectors.py detectors/test_saturation_fault.py correlator/test_dedupe.py actions/test_policy.py -v; \
+	  $(PYTHON) -m pytest narrator/test_validate.py detectors/test_detectors.py detectors/test_saturation_fault.py correlator/test_dedupe.py actions/test_policy.py localiser/test_blame_weights.py -v; \
 	fi

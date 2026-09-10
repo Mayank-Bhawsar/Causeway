@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -40,6 +42,14 @@ def _as_dt(v):
     s = str(v).replace("Z", "+00:00")
     return datetime.fromisoformat(s)
 
+
+def _blame_weights() -> tuple[float, float, float]:
+    sev_w = float(os.getenv("BLAME_SEV_WEIGHT", "1.0"))
+    onset_w = float(os.getenv("BLAME_ONSET_WEIGHT", "1.0"))
+    onset_sec = float(os.getenv("BLAME_ONSET_SEC", "60.0"))
+    return sev_w, onset_w, max(onset_sec, 1.0)
+
+
 def rank_by_blame(
     signals: list[dict],
     edges: list[dict]
@@ -71,6 +81,9 @@ def rank_by_blame(
             out[u].append((u, 1.0))
 
     pers = {u: sev.get(u, 0.0) for u in nodes}
+    sev_w, onset_w, onset_sec = _blame_weights()
+    if sev_w != 1.0:
+        pers = {u: v * sev_w for u, v in pers.items()}
     if sum(pers.values()) <=0:
         pers = {u: 1.0 for u in nodes}
 
@@ -80,7 +93,8 @@ def rank_by_blame(
             if u not in onset:
                 continue
             delta = max(0.0, (onset[u] -t0).total_seconds())
-            pers[u] *= 1.0 + max(0.0, 1.0 - delta / 60.0)
+            boost = 1.0 + onset_w * max(0.0, 1.0 - delta / onset_sec)
+            pers[u] *= boost
 
     raw = _pagerank(nodes, out, pers)
     base = _pagerank(nodes, out, {u: 1.0 for u in nodes})
@@ -103,6 +117,9 @@ def rank_by_blame(
                 "ppr_raw": raw.get(node_id, 0.0),
                 "ppr_base": base.get(node_id, 0.0),
                 "max_severity": sev.get(node_id, 0.0),
+                "blame_sev_weight": sev_w,
+                "blame_onset_weight": onset_w,
+                "blame_onset_sec": onset_sec,
             },
         }
         for i, (node_id, score) in enumerate(ordered, start=1)

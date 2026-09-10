@@ -98,6 +98,31 @@
       font-size: 0.85rem;
     }
     button.refresh:hover { border-color: var(--accent); }
+    .feedback {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .feedback input {
+      width: min(100%, 280px);
+      padding: 0.4rem 0.5rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      margin-right: 0.5rem;
+    }
+    .feedback button {
+      padding: 0.4rem 0.65rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+    }
+    .rca-stats { font-size: 0.8rem; color: var(--muted); max-width: 420px; text-align: right; }
     a { color: var(--accent); }
     pre {
       background: var(--panel);
@@ -116,6 +141,7 @@
       <p>Topology-aware incidents · read-only operator view</p>
     </div>
     <button class="refresh" type="button" id="refresh">Refresh</button>
+    <div class="rca-stats" id="rca-stats">RCA metrics loading…</div>
   </header>
   <main>
     <aside>
@@ -209,17 +235,69 @@
           </table>
           <h3>Timeline</h3>
           <ul class="timeline">${events}</ul>
+          <div class="feedback">
+            <h3 style="margin-top:0">Operator feedback (Phase J)</h3>
+            <p class="meta">Tell Causeway the true root service — stored for RCA quality metrics.</p>
+            <form id="feedback-form">
+              <input id="actual_root" name="actual_root" placeholder="svc:payment-svc" required />
+              <button type="submit">Submit feedback</button>
+            </form>
+            <p class="meta" id="feedback-msg"></p>
+          </div>
         `;
+        document.getElementById("feedback-form").addEventListener("submit", async (ev) => {
+          ev.preventDefault();
+          const root = document.getElementById("actual_root").value.trim();
+          const msg = document.getElementById("feedback-msg");
+          try {
+            const r = await fetch(`${API}/api/v1/incidents/${id}/feedback`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ actual_root: root, submitted_by: "ui" }),
+            });
+            const data = await r.json();
+            if (data.ok) {
+              msg.textContent = `Saved. predicted top1=${data.predicted_top1 || "—"} · rank of actual=${data.correct_rank ?? "—"} · top1_ok=${data.top1_ok}`;
+              loadRcaMetrics();
+            } else {
+              msg.textContent = JSON.stringify(data);
+            }
+          } catch (e) {
+            msg.textContent = String(e);
+          }
+        });
+        const topCand = (cands.candidates && cands.candidates[0]) ? cands.candidates[0].node_id : "";
+        if (topCand) document.getElementById("actual_root").placeholder = topCand;
       } catch (e) {
         el.innerHTML = `<p class="empty">Failed: ${e}</p>`;
       }
     }
 
+    async function loadRcaMetrics() {
+      const el = document.getElementById("rca-stats");
+      try {
+        const r = await fetch(`${API}/api/v1/metrics/rca`);
+        const d = await r.json();
+        const n = d.feedback_count || 0;
+        if (!n) {
+          el.textContent = "RCA metrics: no feedback yet";
+          return;
+        }
+        const t1 = d.top1_accuracy != null ? (100 * d.top1_accuracy).toFixed(0) + "%" : "—";
+        const t3 = d.top3_rate != null ? (100 * d.top3_rate).toFixed(0) + "%" : "—";
+        el.textContent = `Feedback n=${n} · top-1 acc ${t1} · actual in top-3 ${t3}`;
+      } catch {
+        el.textContent = "";
+      }
+    }
+
     document.getElementById("refresh").addEventListener("click", () => {
       loadList();
+      loadRcaMetrics();
       if (selectedId) loadDetail(selectedId);
     });
     loadList();
+    loadRcaMetrics();
   </script>
 </body>
 </html>

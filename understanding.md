@@ -1,7 +1,9 @@
 # Causeway — Simple Guide (for you + interviews)
 
-> **What this file is:** A plain-language explanation of the project.  
+> **What this file is:** A plain-language explanation of the project, plus **developer** and **DevOps** depth for interviews (“I designed and built this end-to-end”).  
 > **When you change the project:** Add a line in [Build log](#build-log) at the bottom.
+
+**Quick jump:** [Main components](#main-components-of-the-codebase-must-know) · [Your narrative](#i-built-this-end-to-end--your-narrative) · [Developer guide](#developer-guide--how-to-read-and-change-the-code) · [DevOps guide](#devops-guide--run-verify-debug) · [System design Q&A](#system-design--questions-interviewers-ask) · [Skills map](#learning-map--skills-this-project-demonstrates)
 
 ---
 
@@ -200,6 +202,109 @@ Different kinds go to different Kafka topics (traces vs alerts).
 
 ---
 
+## Main components of the codebase (must know)
+
+This is the **map of everything you built**. Memorize the **three Causeway layers** first; use the tables below when someone asks “what’s in the repo?” or “how does X talk to Y?”.
+
+### Three layers → folders
+
+| Layer | What it does | Main folders / services |
+|-------|----------------|-------------------------|
+| **1. Observe & ingest** | Generate or collect telemetry; turn alerts into **Signals** | `meshgen/`, `deploy/otel/`, `deploy/vmagent/`, `deploy/vmalert/`, `detectors/`, `api/routes/ingest.py` |
+| **2. Decide** | Correlate signals → **incidents**; rank **root cause** | `worker/`, `correlator/`, `topology/`, `localiser/` |
+| **3. Explain & operate** | Evidence, narrative, actions, UI, quality loop | `evidence/`, `narrator/`, `actions/`, `ui/`, `api/routes/incidents.py`, `api/routes/metrics.py`, `bench/` |
+
+### Runtime: what actually runs
+
+| Component | Language | Entry point | Job |
+|-----------|----------|-------------|-----|
+| **causeway-api** | Python | `api/main.py` (uvicorn) | REST API, Alertmanager webhook, static **UI**, read/write Postgres for operators |
+| **causeway-worker** | Python | `worker/main.py` | **Detect** (poll VM) → Kafka; **consume** Kafka → correlate; **topology** refresh |
+| **meshgen** (×12) | Go | `meshgen/main.go` | Fake shop microservices, OTLP traces, `/admin/fault` |
+| **otel-collector** | — | `deploy/otel/gateway.yaml` | Traces → span metrics + service graph → VM |
+| **vmagent** | — | `deploy/vmagent/scrape.yml` | Prometheus scrape mesh `/metrics` → VM |
+| **vmalert + alertmanager** | — | `deploy/vmalert/`, `deploy/alertmanager/` | Alert rules → webhook → API |
+| **redpanda** | — | `docker-compose.yml` | Kafka bus (`signals.*` topics) |
+| **postgres** | — | `db/migrations/0001_init.sql` | System of record |
+| **victoria-metrics** | — | Compose | Metrics + PromQL for detectors and topology |
+
+Only **api** and **worker** are your large Python apps; the rest is infra + Go mesh.
+
+### Python modules (your engine) — file-by-file importance
+
+| Module | Key files | Responsibility |
+|--------|-----------|----------------|
+| **`api.models`** | `signal.py` | **Contract** for all events (`Signal`, `SignalKind`, Kafka topic mapping) |
+| **`detectors`** | `baseline.py`, `changepoint.py`, `latency.py`, `errors.py`, `saturation.py` | Pull metrics from VM; EWMA + Page-Hinkley; emit `Signal` list |
+| **`worker`** | `main.py` | Orchestrates detect / consume / topology loops |
+| **`correlator`** | `window.py`, `dedupe.py`, `affinity.py`, `graph.py`, `cluster.py`, `db.py`, `notify.py` | 90s buffer, dedupe, distance matrix, HDBSCAN, persist incident, optional Slack |
+| **`topology`** | `servicegraph.py`, `persist.py` | PromQL edges from VM → `edge_observation` + snapshots |
+| **`localiser`** | `blame.py`, `rank.py` | PageRank RCA (+ env `BLAME_*` weights); severity fallback |
+| **`evidence`** | `build.py` | JSON pack with `EV-SIG-*`, `EV-RCA-*`, `EV-TOPO-*` keys |
+| **`narrator`** | `openai_narrator.py`, `template_narrator.py`, `validate.py` | LLM or template story; block hallucinations |
+| **`actions`** | `suggest.py`, `policy.py` | Diagnostic suggestion + allowlist / optional OPA |
+| **`bench`** | `replay.py`, `metrics.py`, `feedback_report.py`, `fixtures/` | Offline RCA tests + feedback quality report |
+
+### Kafka topics (signal bus)
+
+| Topic | Typical producer | Consumer |
+|-------|------------------|----------|
+| `signals.traces` | Worker detectors (latency, error, saturation) | Worker correlator |
+| `signals.alerts` | API `/ingest/alerts` (Alertmanager) | Worker correlator |
+| `signals.k8s`, `signals.deploys`, `signals.logs` | (future / manual ingest) | Worker correlator (subscribed) |
+
+All messages share the same **`Signal` JSON** shape.
+
+### API surface (what operators and demos call)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/healthz` | Liveness |
+| POST | `/ingest/signal`, `/ingest/alerts` | Push signals to Kafka |
+| GET | `/api/v1/incidents` | List incidents (+ `top_cause`) |
+| GET | `/api/v1/incidents/{id}/candidates` | Ranked RCA list |
+| GET | `/api/v1/incidents/{id}/timeline` | Signals ordered by onset |
+| GET | `/api/v1/incidents/{id}/evidence`, `/graph`, `/narrative` | Explain path |
+| POST | `/api/v1/incidents/{id}/narrate`, `/feedback`, `/actions` | Generate story, learning loop, policy check |
+| GET | `/api/v1/metrics/rca` | Feedback accuracy (Phase J) |
+| GET | `/`, `/ui` | Operator dashboard |
+
+### Deploy & ops (not application logic, but you own them)
+
+| Path | Role |
+|------|------|
+| `docker-compose.yml` | Full stack wiring, env vars, volumes for hot reload |
+| `Dockerfile` | API/worker image (`pip install -e ".[dev]"`) |
+| `Makefile` | `demo`, `test`, `bench`, `verify-*`, `feedback-report` |
+| `scripts/` | DNS verify, alert verify, live E2E, Kafka wait helper |
+| `.github/workflows/ci.yml` | Unit tests on push |
+| `loadgen/` | Fault injection + traffic for demos and vmalert |
+
+### Supporting assets (know they exist)
+
+| Path | Role |
+|------|------|
+| `pyproject.toml` | Package name `causeway`, dependencies, pytest/ruff |
+| `.env` / `.env.example` | Secrets (OpenAI, Slack, optional OPA) |
+| `understanding.md` | This doc — architecture + interview prep |
+| `README.md` | Quick start commands |
+
+### One-line dependency graph (who calls whom)
+
+```text
+meshgen → otel-collector → VictoriaMetrics ← vmagent (mesh /metrics)
+                              ↑
+                         detectors (worker)
+                              ↓
+                           Kafka ← ingest (API) ← Alertmanager ← vmalert
+                              ↓
+                         worker consume → correlator → localiser → evidence
+                              ↓
+                           Postgres ← API ← UI / curl / bench
+```
+
+---
+
 ## Database tables (what we store)
 
 | Table | Plain English |
@@ -213,6 +318,7 @@ Different kinds go to different Kafka topics (traces vs alerts).
 | `evidence_pack` | Facts for AI/template |
 | `narrative` | Saved explanation text |
 | `ground_truth` | Correct answer for benchmarks |
+| `feedback` | Operator-submitted actual root (Phase J learning loop) |
 
 ---
 
@@ -231,6 +337,7 @@ Different kinds go to different Kafka topics (traces vs alerts).
 | **H2** | Saturation fires on `meshgen_fault_active` (injected fault) | **Done** |
 | **H3** | `make verify-alerts-live` — vmalert → AM → API → Kafka | **Done** |
 | **I** | Operator UI at `/ui` + `GET .../timeline` | **Done** |
+| **J** | Feedback report, `/metrics/rca`, tunable blame weights, UI feedback | **Done** |
 
 ---
 
@@ -238,8 +345,7 @@ Different kinds go to different Kafka topics (traces vs alerts).
 
 | Phase | Goal | Ideas |
 |-------|------|--------|
-| **J** | Learning loop | Feedback report; tune ranker from `feedback` table |
-| **K** | Production hardening | API auth, multi-worker Kafka consumers |
+| **K** | Production hardening | Ingest API key, `make bench` in CI, worker health |
 
 **Run now:** `make verify-live` (full stack, ~3 min) · `docker compose --profile opa up -d opa` + `OPA_URL=http://opa:8181` for policy tests.
 
@@ -260,6 +366,9 @@ make score           # is top guess = payment-svc?
 make narrate         # generate story (OpenAI or template)
 make narrative       # read saved story
 make action          # suggested diagnostic step + policy check
+make feedback        # POST sample actual root for latest incident
+make feedback-report # top-1 / top-3 stats from feedback table
+curl localhost:8000/api/v1/metrics/rca   # same stats as JSON
 make verify-alerts  # test Alertmanager webhook → API
 make verify-alerts-live  # live vmalert path (~2-3 min, needs make up)
 make verify-all     # test + bench + verify-alerts
@@ -307,6 +416,234 @@ Validator checks every claim against IDs in the evidence pack (`EV-SIG-0001`, et
 
 ---
 
+## “I built this end-to-end” — your narrative
+
+Use this when you present Causeway as **your product + your implementation** (idea → code → ops).
+
+**Problem you chose to solve:**  
+Microservices create **alert storms** and **unclear root cause**. Dashboards show symptoms; they do not **group** related events, **rank** blame on the **service graph**, or **explain** with **auditable evidence**.
+
+**Your solution (Causeway):**  
+A small platform with three layers:
+
+1. **Ingest** — One `Signal` model; metrics detectors, vmalert webhooks, (future) k8s/deploy events → **Kafka**.  
+2. **Decide** — Time window + topology distance + clustering → **incidents**; PageRank → **candidates**.  
+3. **Explain** — Evidence pack → validated narrative + **policy-gated** action suggestions.
+
+**What you personally implemented (talk track):**  
+Go **meshgen** (synthetic load + fault injection + OTLP), **Python engine** (detectors, correlator, RCA, API, worker), **deploy** (Compose, OTel, VM, vmalert, vmagent, Redpanda, Postgres), **bench/verify** scripts, **operator UI**, and **CI**. You iterated in **phases A–I** with tests and make targets—not a single big bang.
+
+**Differentiator vs “another Grafana dashboard”:**  
+Topology-aware correlation, **onset time** (not just “now”), grounded LLM output, and a **full demo loop** you can run locally.
+
+---
+
+## Tech stack — what each piece does (DevOps + developer)
+
+| Technology | Role in Causeway | Why it’s here (what to say in interview) |
+|------------|------------------|------------------------------------------|
+| **Go (meshgen)** | Fake microservice mesh, `/admin/fault`, OTLP traces | Realistic traces without deploying 12 real apps |
+| **OpenTelemetry Collector** | Traces → span metrics + service graph → VM | Industry-standard observability pipeline |
+| **VictoriaMetrics** | Metrics store + PromQL | Lightweight Prometheus-compatible TSDB for demos |
+| **vmagent** | Scrapes mesh `/metrics` (`meshgen_*`) | App-native metrics alongside trace-derived metrics |
+| **vmalert + Alertmanager** | Rule-based alerts → webhook | Shows **push** alerts and **pull** detectors on same bus |
+| **Redpanda (Kafka)** | `signals.*` topics | Decouples producers (API, worker) from correlator consumer |
+| **Postgres + pgvector** | Incidents, topology, evidence (vectors reserved) | Durable state + future embedding search |
+| **FastAPI** | REST + ingest + static UI | Async-friendly API, quick to extend |
+| **Python worker** | `asyncio`: consume, detect, topology | One process, three loops—easy to demo; scale later |
+| **Docker Compose** | Full stack on one machine | Reproducible demo for interviews and CI |
+| **GitHub Actions** | Unit tests on push | Safety net for refactors |
+| **Make** | `demo`, `bench`, `verify-*` | Operator-friendly entry points |
+
+---
+
+## Developer guide — how to read and change the code
+
+### Runtime processes (only two you wrote in Python)
+
+| Process | Entry | Responsibility |
+|---------|--------|----------------|
+| **API** | `api/main.py` → uvicorn | HTTP, ingest to Kafka, read Postgres for UI/clients |
+| **Worker** | `worker/main.py` | Detect (poll VM) → publish Kafka; consume Kafka → correlate → Postgres; refresh topology |
+
+Both share libraries under `detectors/`, `correlator/`, `localiser/`, etc. (installed as package `causeway` via `pyproject.toml`).
+
+### Worker concurrency model (important)
+
+```text
+asyncio.gather(
+  consume(),       # Kafka → windowBuffer.add → flush → incident
+  detect_loop(),   # VM queries → Signal → Kafka publish
+  topology_loop(), # VM servicegraph → edge_observation
+)
+```
+
+- **Detect** and **consume** are separate on purpose: same signal shape whether source is **pull** (detector) or **push** (webhook).  
+- **Volume mounts** on `correlator/`, `detector/`, `worker/` in Compose → edit code without rebuild during dev.
+
+### Data flow (developer mental model)
+
+```text
+VM PromQL → detectors/*.py → Signal (Pydantic) → JSON → Kafka topic
+Alertmanager POST → api/routes/ingest.py → same Signal → Kafka
+Kafka → worker consume → correlator/window.py (dedupe in buffer)
+     → flush → affinity + HDBSCAN → localiser/blame → evidence/build → Postgres
+API ← Postgres ← UI / curl / bench
+```
+
+### Files you touch most often
+
+| Goal | Start here |
+|------|------------|
+| New detector | Copy `detectors/latency.py`, add to `DETECTORS` in `worker/main.py` |
+| Change correlation window | `CORR_WINDOW_SEC`, `correlator/window.py` |
+| Change RCA | `localiser/blame.py` (PageRank weights, onset boost) |
+| New API field | `api/routes/incidents.py` + schema in `db/migrations/` if needed |
+| Alert rules | `deploy/vmalert/rules.yaml` |
+| Scrape targets | `deploy/vmagent/scrape.yml` |
+| Demo / fault | `loadgen/fault_and_load.sh`, `meshgen/fault/` |
+
+### How to add a new detector (checklist)
+
+1. Implement `async def detect_X_signals() -> list[Signal]` using `api.models.signal`.  
+2. Set **`fingerprint`** for dedupe (see `correlator/dedupe.py`).  
+3. Register in `worker/main.py` → `DETECTORS`.  
+4. Add unit test under `detectors/`.  
+5. `docker compose restart causeway-worker` (or rely on volume mount + restart).  
+6. Optional: bench fixture in `bench/fixtures/`.
+
+### Python patterns used in this repo
+
+- **Pydantic v2** — `Signal` is the contract for Kafka and DB JSON.  
+- **asyncpg** — direct SQL in routes/worker (no ORM); fast for a focused schema.  
+- **aiokafka** — async producer/consumer in worker and ingest.  
+- **NumPy + scikit-learn** — distance matrix + HDBSCAN in correlator.  
+- **httpx** — async PromQL queries from detectors.
+
+---
+
+## DevOps guide — run, verify, debug
+
+### First-time / daily workflow
+
+```bash
+make up              # all containers
+make verify-dns      # API + container DNS (WSL)
+make verify-mesh-metrics   # wait ~30s after up
+make demo            # inject fault + load
+make logs            # worker: detected … correlator flushed …
+make ui              # browser: incidents + timeline
+make score           # top-1 vs payment-svc
+```
+
+### Verification ladder (what each proves)
+
+| Command | Proves |
+|---------|--------|
+| `make test` | Unit logic (EWMA, dedupe, narrator validator, policy) |
+| `make bench` | RCA ranker on frozen fixtures (no Docker mesh) |
+| `make verify-alerts` | API ingest path (sample webhook) |
+| `make verify-mesh-metrics` | vmagent → VM |
+| `make verify-alerts-live` | vmalert → AM → API → Kafka (slow) |
+| `make verify-live` | Full mesh → incident → top-1 score (slow) |
+| `make verify-all` | test + bench + alerts + mesh metrics (stack up) |
+
+### Environment variables (ops cheat sheet)
+
+| Variable | Service | Meaning |
+|----------|---------|---------|
+| `BLAME_SEV_WEIGHT` / `BLAME_ONSET_WEIGHT` / `BLAME_ONSET_SEC` | worker | PageRank personalization tuning (Phase J) |
+| `CORR_WINDOW_SEC` | worker | Incident batching window (default 90) |
+| `DETECT_INTERVAL_SEC` | worker | How often detectors poll VM |
+| `DETECT_Z` / `DETECT_ERROR_Z` / `DETECT_SAT_Z` | worker | Z-score thresholds |
+| `VM_URL` | api, worker | VictoriaMetrics base URL |
+| `KAFKA_BOOTSTRAP` | api, worker | Redpanda address |
+| `DATABASE_URL_SYNC` | api, worker | Postgres DSN |
+| `SLACK_WEBHOOK_URL` | worker | Optional incident notification |
+| `OPENAI_API_KEY` | api | LLM narrate (template fallback if unset) |
+| `OPA_URL` | api | Optional external policy for actions |
+| `DOCKER_BUILDKIT=0` | Makefile | WSL/DNS workaround for image builds |
+
+### Debugging playbook
+
+| Symptom | Check |
+|---------|--------|
+| `make demo` fails on :8081 | `make up`; mesh not running |
+| No incidents | `make logs`; wait full **90s** after signals; topology empty? `topology_loop` logs |
+| Wrong top-1 | `make graph`; `make bench`; onset order in fixture vs live |
+| vmalert never fires | Steady traffic (`make traffic`); latency rule needs `increase` over 1m |
+| Kafka empty | `docker compose logs causeway-api` on ingest; Redpanda healthy |
+| DNS / build failures | `scripts/setup-wsl-dns.sh`, `DOCKER_BUILDKIT=0` |
+| UI empty | Postgres has rows? `curl localhost:8000/api/v1/incidents` |
+
+### CI/CD (what runs today)
+
+- **GitHub Actions** (`.github/workflows/ci.yml`): `pip install -e ".[dev]"` + pytest on push/PR.  
+- **Not in CI yet:** `make bench` / `verify-live` (need Docker)—good **future** improvement to mention honestly.
+
+### Infrastructure as code in this repo
+
+| Path | Purpose |
+|------|---------|
+| `docker-compose.yml` | Full stack definition, healthchecks, volumes |
+| `Dockerfile` | API + worker image (`pip install -e ".[dev]"`) |
+| `deploy/otel/gateway.yaml` | Collector pipelines (spanmetrics, servicegraph) |
+| `deploy/vmalert/rules.yaml` | Alert rules |
+| `deploy/alertmanager/alertmanager.yml` | Webhook to Causeway API |
+| `deploy/vmagent/scrape.yml` | Mesh Prometheus scrape |
+| `deploy/opa/policy.rego` | Sample action policy |
+| `db/migrations/0001_init.sql` | Schema bootstrap on Postgres init |
+
+---
+
+## System design — questions interviewers ask
+
+**Q: Why not one monolith that polls everything?**  
+A: Kafka lets **multiple producers** (detectors, webhooks, future agents) share one **correlation consumer**. Same `Signal` schema everywhere.
+
+**Q: Why Postgres and not only Kafka?**  
+A: Incidents, evidence, and UI need **queryable state** and joins (incident ↔ signals ↔ candidates). Kafka is the **event bus**, not the system of record.
+
+**Q: How do you avoid duplicate signals?**  
+A: In-window **dedupe** (`correlator/dedupe.py`) merges alert + latency on same service; DB upsert by `signal_id`.
+
+**Q: How do you trust the LLM narrative?**  
+A: **Evidence pack** with stable IDs; `narrator/validate.py` rejects ungrounded claims; template fallback offline.
+
+**Q: How would you scale this?**  
+A: Partition Kafka by `node_id`; horizontal workers same `group_id`; read-only API replicas; move to K8s Helm chart (out of scope for demo).
+
+**Q: SLO / observability of Causeway itself?**  
+A: Today: logs + `make verify-*`. Production: metrics on detector lag, consumer lag, flush latency, top-1 bench regression.
+
+---
+
+## Learning map — skills this project demonstrates
+
+| Skill area | Where you show it in Causeway |
+|------------|------------------------------|
+| **Backend (Python)** | FastAPI, asyncpg, aiokafka, Pydantic |
+| **Backend (Go)** | meshgen, OTLP, fault injection |
+| **Streaming** | Kafka topics, consumer groups, keyed messages |
+| **Observability** | OTel, PromQL, vmalert, scraping |
+| **Data / algorithms** | EWMA, Page-Hinkley, HDBSCAN, PageRank |
+| **LLM ops** | Grounded generation + validator |
+| **DevOps** | Compose, multi-service health, verify scripts, CI |
+| **Testing** | pytest, bench fixtures, E2E verify scripts |
+| **Product** | UI, evidence, actions with policy—not just a library |
+
+---
+
+## Honest limits (say these confidently—it builds trust)
+
+- Single worker process (no HA).  
+- No auth on API ingest (demo only).  
+- Actions are **suggest-only**; OPA is optional.  
+- Ranker weights are tunable via **`BLAME_*`** env vars; **`feedback`** table + **`make feedback-report`** track top-1/top-3 accuracy (Phase **J**).  
+- Designed for **local Compose**, not multi-region production.
+
+---
+
 ## Build log
 
 | Date | What changed |
@@ -318,6 +655,7 @@ Validator checks every claim against IDs in the evidence pack (`EV-SIG-0001`, et
 | 2026-09-10 | Phase H2: saturation detector uses `meshgen_fault_active` with stable onset. |
 | 2026-09-10 | Phase H3: verify-alerts-live (vmalert → Alertmanager → Kafka). |
 | 2026-09-10 | Phase I: operator UI at /ui + GET .../timeline API. |
+| 2026-09-10 | Phase J: feedback report, /metrics/rca, blame env weights, UI feedback form. |
 
 ---
 
@@ -327,4 +665,4 @@ Validator checks every claim against IDs in the evidence pack (`EV-SIG-0001`, et
 - `db/migrations/0001_init.sql` — full database schema  
 - `deploy/vmalert/rules.yaml` — alert rules  
 
-*Last updated: 2026-09-10*
+*Last updated: 2026-09-10 — includes DevOps/developer sections for end-to-end ownership story.*
