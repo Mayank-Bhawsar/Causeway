@@ -8,6 +8,7 @@ from pathlib import Path
 
 from correlator.affinity import pairwise_distance
 from correlator.cluster import cluster_signals
+from correlator.partition import split_clusters_by_graph
 from bench.replay import dedupe_signals
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -20,6 +21,7 @@ def replay_correlate(path: Path) -> dict:
     expected = int(fx.get("expected_incidents", 1))
     dist = pairwise_distance(signals, edges)
     clusters = cluster_signals(signals, dist)
+    clusters = split_clusters_by_graph(clusters, edges)
     return {
         "scenario": fx.get("scenario", path.stem),
         "clusters": len(clusters),

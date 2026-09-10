@@ -80,3 +80,37 @@ async def ingest_alerts(request: Request) -> dict:
         accepted.append(await _publish(signal))
 
     return {"accepted_count": len(accepted), "items": accepted}
+
+
+@router.post("/deploy")
+async def ingest_deploy(request: Request) -> dict:
+    """Deployment / rollout event → signals.deploys (Phase L1)."""
+    body = await request.json()
+    now = datetime.now(timezone.utc)
+    service = body.get("service") or body.get("service_name") or "unknown"
+    node_id = body.get("node_id") or (
+        service if ":" in str(service) else f"svc:{service}"
+    )
+    revision = body.get("revision") or body.get("image_tag") or "unknown"
+    onset_raw = body.get("onset_at") or body.get("deployed_at") or now.isoformat()
+    try:
+        onset = datetime.fromisoformat(str(onset_raw).replace("Z", "+00:00"))
+    except ValueError:
+        onset = now
+
+    signal = Signal(
+        signal_id=f"sig_{uuid.uuid4().hex[:16]}",
+        kind=SignalKind.DEPLOY,
+        node_id=str(node_id),
+        severity=float(body.get("severity", 0.55)),
+        onset_at=onset,
+        observed_at=now,
+        fingerprint=f"deploy:{node_id}:{revision}",
+        payload={
+            "revision": revision,
+            "deployer": body.get("deployer"),
+            "source": body.get("source", "api"),
+            **({k: v for k, v in body.items() if k not in ("service", "service_name")}),
+        },
+    )
+    return await _publish(signal)

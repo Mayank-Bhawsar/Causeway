@@ -123,6 +123,23 @@
       cursor: pointer;
     }
     .rca-stats { font-size: 0.8rem; color: var(--muted); max-width: 420px; text-align: right; }
+    .api-keys {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+      font-size: 0.75rem;
+      max-width: 520px;
+    }
+    .api-keys input {
+      width: 7rem;
+      padding: 0.25rem 0.4rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+    }
+    .api-keys label { color: var(--muted); }
     a { color: var(--accent); }
     pre {
       background: var(--panel);
@@ -168,6 +185,13 @@
       <p>Topology-aware incidents · read-only operator view</p>
     </div>
     <button class="refresh" type="button" id="refresh">Refresh</button>
+    <div class="api-keys" title="Phase L3 — optional API_READ_KEY / INGEST_API_KEY for hardened demo">
+      <label>Read key</label>
+      <input type="password" id="api-read-key" autocomplete="off" placeholder="optional" />
+      <label>Write key</label>
+      <input type="password" id="api-write-key" autocomplete="off" placeholder="optional" />
+      <button type="button" class="small" id="save-api-keys">Save</button>
+    </div>
     <div class="rca-stats" id="rca-stats">RCA metrics loading…</div>
   </header>
   <main>
@@ -182,6 +206,30 @@
   <script>
     const API = "";
     let selectedId = null;
+    const LS_READ = "causeway_api_read_key";
+    const LS_WRITE = "causeway_api_write_key";
+
+    function loadApiKeysFromStorage() {
+      const r = document.getElementById("api-read-key");
+      const w = document.getElementById("api-write-key");
+      if (r) r.value = localStorage.getItem(LS_READ) || "";
+      if (w) w.value = localStorage.getItem(LS_WRITE) || "";
+    }
+
+    function apiFetch(url, options = {}) {
+      const opts = { ...options, headers: { ...(options.headers || {}) } };
+      const readKey = localStorage.getItem(LS_READ);
+      const writeKey = localStorage.getItem(LS_WRITE);
+      const method = (opts.method || "GET").toUpperCase();
+      if (method === "GET" && readKey) {
+        opts.headers["X-API-Key"] = readKey;
+      } else if (method !== "GET" && writeKey) {
+        opts.headers["Authorization"] = `Bearer ${writeKey}`;
+      } else if (method !== "GET" && readKey && !writeKey) {
+        opts.headers["X-API-Key"] = readKey;
+      }
+      return fetch(url, opts);
+    }
 
     function fmtTime(v) {
       if (!v) return "—";
@@ -211,7 +259,7 @@
       if (!box) return;
       box.textContent = "Loading…";
       try {
-        const r = await fetch(`${API}/api/v1/incidents/${id}/narrative`);
+        const r = await apiFetch(`${API}/api/v1/incidents/${id}/narrative`);
         const data = await r.json();
         const nar = data.narrative;
         if (!nar) {
@@ -229,7 +277,7 @@
     async function loadList() {
       const el = document.getElementById("list");
       try {
-        const r = await fetch(`${API}/api/v1/incidents`);
+        const r = await apiFetch(`${API}/api/v1/incidents`);
         const data = await r.json();
         const items = data.incidents || [];
         if (!items.length) {
@@ -265,8 +313,8 @@
       el.innerHTML = "<p class=\"empty\">Loading detail…</p>";
       try {
         const [cands, timeline] = await Promise.all([
-          fetch(`${API}/api/v1/incidents/${id}/candidates`).then((r) => r.json()),
-          fetch(`${API}/api/v1/incidents/${id}/timeline`).then((r) => r.json()),
+          apiFetch(`${API}/api/v1/incidents/${id}/candidates`).then((r) => r.json()),
+          apiFetch(`${API}/api/v1/incidents/${id}/timeline`).then((r) => r.json()),
         ]);
         const rows = (cands.candidates || []).map((c) => `
           <tr>
@@ -329,7 +377,7 @@
           btn.disabled = true;
           btn.textContent = "Generating…";
           try {
-            await fetch(`${API}/api/v1/incidents/${id}/narrate`, { method: "POST" });
+            await apiFetch(`${API}/api/v1/incidents/${id}/narrate`, { method: "POST" });
             await loadNarrativePanel(id);
           } catch (e) {
             document.getElementById("narrative-body").textContent = String(e);
@@ -344,7 +392,7 @@
           const root = document.getElementById("actual_root").value.trim();
           const msg = document.getElementById("feedback-msg");
           try {
-            const r = await fetch(`${API}/api/v1/incidents/${id}/feedback`, {
+            const r = await apiFetch(`${API}/api/v1/incidents/${id}/feedback`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ actual_root: root, submitted_by: "ui" }),
@@ -370,7 +418,7 @@
     async function loadRcaMetrics() {
       const el = document.getElementById("rca-stats");
       try {
-        const r = await fetch(`${API}/api/v1/metrics/rca`);
+        const r = await apiFetch(`${API}/api/v1/metrics/rca`);
         const d = await r.json();
         const n = d.feedback_count || 0;
         if (!n) {
@@ -390,6 +438,11 @@
       loadRcaMetrics();
       if (selectedId) loadDetail(selectedId);
     });
+    document.getElementById("save-api-keys").addEventListener("click", () => {
+      localStorage.setItem(LS_READ, document.getElementById("api-read-key").value.trim());
+      localStorage.setItem(LS_WRITE, document.getElementById("api-write-key").value.trim());
+    });
+    loadApiKeysFromStorage();
     loadList();
     loadRcaMetrics();
   </script>

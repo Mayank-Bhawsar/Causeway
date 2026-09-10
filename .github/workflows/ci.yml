@@ -22,9 +22,11 @@ jobs:
             detectors/test_detectors.py \
             detectors/test_saturation_fault.py \
             correlator/test_dedupe.py \
+            correlator/test_partition.py \
             actions/test_policy.py \
             localiser/test_blame_weights.py \
-            bench/test_replay_dedupe.py -v
+            bench/test_replay_dedupe.py \
+            bench/test_deploy_fixture.py -v
 
   bench-rca:
     runs-on: ubuntu-latest

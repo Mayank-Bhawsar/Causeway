@@ -260,7 +260,7 @@ All messages share the same **`Signal` JSON** shape.
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/healthz` | Liveness (+ deps; optional worker via `WORKER_HEALTH_URL`) |
-| POST | `/ingest/signal`, `/ingest/alerts` | Push signals to Kafka (**`INGEST_API_KEY`** if set) |
+| POST | `/ingest/signal`, `/ingest/alerts`, **`/ingest/deploy`** | Push signals to Kafka (**`INGEST_API_KEY`** if set) |
 | GET | `/api/v1/*` | Incidents, metrics (**`API_READ_KEY`** if set) |
 | POST | `/api/v1/incidents/...` | narrate, feedback, actions (**`INGEST_API_KEY`** if set) |
 | GET | `/api/v1/incidents` | List incidents (+ `top_cause`) |
@@ -342,6 +342,10 @@ meshgen → otel-collector → VictoriaMetrics ← vmagent (mesh /metrics)
 | **J** | Feedback report, `/metrics/rca`, tunable blame weights, UI feedback | **Done** |
 | **J+** | Live demo script, UI copy ID + narrative panel, alert+latency bench fixture | **Done** |
 | **K** | Ingest/read API keys, worker `/healthz`, bench in CI, K8s sketch doc | **Done** |
+| **L1** | `POST /ingest/deploy`, `deploy_payment_rollout` bench fixture, `make sample-deploy` | **Done** |
+| **L3** | UI stores read/write API keys (localStorage) for Phase K auth | **Done** |
+| **L4** | `make demo-e2e-alerts` (+ optional `DEMO_E2E_ALERTS_LIVE=1`) | **Done** |
+| **M1** | Graph partition split after clustering (`correlator/partition.py`) | **Done** |
 
 ---
 
@@ -349,9 +353,11 @@ meshgen → otel-collector → VictoriaMetrics ← vmagent (mesh /metrics)
 
 | Phase | Goal | Ideas |
 |-------|------|--------|
-| **L** | Optional depth | Deploy signals, Grafana dashboard, pgvector, incident merge/split |
+| **L2** | Grafana dashboard JSON | VM + incident counters |
+| **L5–L6** | pgvector embeddings; incident merge/split lifecycle | Schema + docs |
+| **M2–M5** | Snapshot-at-window-start; evidence redaction; seasonal baseline | Spec MVP slices |
 
-**Run now:** `make demo-e2e` (certified live demo, ~4 min, needs `make up`) · `make verify-live` (shorter path) · worker: `curl localhost:8085/healthz`
+**Run now:** `make demo-e2e` · `make demo-e2e-alerts` · `make sample-deploy` · `make bench-correlate`
 
 When you finish something, write it in **Build log** below.
 
@@ -692,6 +698,7 @@ Compose → Kubernetes is mostly **one Deployment per service** plus shared conf
 | 2026-09-10 | Phase J+: `make demo-script`, UI copy ID + narrative panel, `payment_alert_latency` bench fixture + dedupe in replay. |
 | 2026-09-10 | Phase K: optional API keys, worker :8085 health, bench CI job, K8s migration sketch in docs. |
 | 2026-09-10 | E2E demo: `make demo-e2e`, shared `scripts/e2e_helpers.sh`, hardened `verify-live` (poll + warm-up). |
+| 2026-09-10 | Phase L1/L3/L4 + M1: deploy ingest, UI API keys, demo-e2e-alerts, graph partition split. |
 
 ---
 

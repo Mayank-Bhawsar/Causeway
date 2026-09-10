@@ -1,4 +1,4 @@
-.PHONY: help up down build build-fast dns-fix logs demo demo-script demo-run demo-e2e score graph health seed-gt feedback feedback-report evidence action narrate narrative bench bench-correlate test verify-alerts verify-alerts-live traffic verify-all verify-live verify-mesh-metrics ui
+.PHONY: help up down build build-fast dns-fix logs demo demo-script demo-run demo-e2e demo-e2e-alerts sample-deploy score graph health seed-gt feedback feedback-report evidence action narrate narrative bench bench-correlate test verify-alerts verify-alerts-live traffic verify-all verify-live verify-mesh-metrics ui
 
 API      ?= http://localhost:8000
 EXPECTED ?= svc:payment-svc
@@ -23,6 +23,8 @@ help:
 	@echo "  make verify-all  - test + bench + verify-alerts"
 	@echo "  make verify-live - mesh fault + wait + score top-1 (slow ~3 min)"
 	@echo "  make demo-e2e    - certified demo: preflight + warm + fault + score (~4 min)"
+	@echo "  make demo-e2e-alerts - demo-e2e + verify-alerts (optional live vmalert)"
+	@echo "  make sample-deploy - POST /ingest/deploy sample event"
 	@echo "  make ui          - open operator UI at http://localhost:8000/ui"
 	@echo "  make health    - hit /healthz"
 	@echo "  make demo      - inject payment fault + load"
@@ -78,6 +80,12 @@ verify-live:
 
 demo-e2e:
 	bash scripts/demo_e2e.sh
+
+demo-e2e-alerts:
+	bash scripts/demo_e2e_alerts.sh
+
+sample-deploy:
+	bash scripts/sample_deploy.sh
 
 verify-mesh-metrics:
 	bash scripts/verify_mesh_metrics.sh
@@ -182,7 +190,7 @@ bench-correlate:
 
 test:
 	@if docker compose exec -T causeway-api python -c "import pytest" >/dev/null 2>&1; then \
-	  docker compose exec -T causeway-api pytest api/test_auth.py narrator/test_validate.py detectors/test_detectors.py detectors/test_saturation_fault.py correlator/test_dedupe.py actions/test_policy.py localiser/test_blame_weights.py bench/test_replay_dedupe.py -v; \
+	  docker compose exec -T causeway-api pytest api/test_auth.py narrator/test_validate.py detectors/test_detectors.py detectors/test_saturation_fault.py correlator/test_dedupe.py correlator/test_partition.py actions/test_policy.py localiser/test_blame_weights.py bench/test_replay_dedupe.py bench/test_deploy_fixture.py -v; \
 	else \
-	  $(PYTHON) -m pytest api/test_auth.py narrator/test_validate.py detectors/test_detectors.py detectors/test_saturation_fault.py correlator/test_dedupe.py actions/test_policy.py localiser/test_blame_weights.py bench/test_replay_dedupe.py -v; \
+	  $(PYTHON) -m pytest api/test_auth.py narrator/test_validate.py detectors/test_detectors.py detectors/test_saturation_fault.py correlator/test_dedupe.py correlator/test_partition.py actions/test_policy.py localiser/test_blame_weights.py bench/test_replay_dedupe.py bench/test_deploy_fixture.py -v; \
 	fi

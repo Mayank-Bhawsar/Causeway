@@ -10,6 +10,7 @@ from correlator.db import connect, create_incident, upsert_signal, insert_candid
 from correlator.db import save_evidence_pack
 from correlator.affinity import pairwise_distance
 from correlator.cluster import cluster_signals
+from correlator.partition import split_clusters_by_graph
 from correlator.dedupe import merge_into_buffer
 from correlator.notify import notify_incident_created
 
@@ -59,6 +60,7 @@ class windowBuffer:
             edge_dicts = [dict(r) for r in edges]
             dist = pairwise_distance(self.signals, edge_dicts)
             clusters = cluster_signals(self.signals, dist)
+            clusters = split_clusters_by_graph(clusters, edge_dicts)
 
             last_incident = None
             for cluster in clusters:

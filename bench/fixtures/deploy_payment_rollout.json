@@ -1,0 +1,38 @@
+{
+  "scenario": "deploy_payment_rollout",
+  "true_root": "svc:payment-svc",
+  "expected_incidents": 1,
+  "signals": [
+    {
+      "signal_id": "sig_deploy_1",
+      "kind": "deploy",
+      "node_id": "svc:payment-svc",
+      "severity": 0.5,
+      "onset_at": "2026-09-01T14:18:50.000000Z",
+      "observed_at": "2026-09-01T14:18:55.000000Z",
+      "payload": {"revision": "pay-v2.3.1", "source": "fixture"}
+    },
+    {
+      "signal_id": "sig_fixture_lat",
+      "kind": "trace_latency_shift",
+      "node_id": "svc:payment-svc",
+      "severity": 0.58,
+      "onset_at": "2026-09-01T14:19:00.000000Z",
+      "observed_at": "2026-09-01T14:19:05.000000Z",
+      "payload": {"latency_ms": 480.0, "z_score": 3.2}
+    },
+    {
+      "signal_id": "sig_fixture_2",
+      "kind": "trace_latency_shift",
+      "node_id": "svc:checkout-svc",
+      "severity": 0.38,
+      "onset_at": "2026-09-01T14:19:12.000000Z",
+      "observed_at": "2026-09-01T14:19:12.000000Z",
+      "payload": {}
+    }
+  ],
+  "edges": [
+    {"src": "svc:frontend", "dst": "svc:checkout-svc", "calls": 50, "call_share": 0.06},
+    {"src": "svc:checkout-svc", "dst": "svc:payment-svc", "calls": 51, "call_share": 0.06}
+  ]
+}
