@@ -132,6 +132,33 @@
       overflow: auto;
       font-size: 0.75rem;
     }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin: 0.5rem 0 1rem;
+    }
+    button.small {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.25rem 0.55rem;
+      cursor: pointer;
+      font-size: 0.78rem;
+    }
+    button.small:hover { border-color: var(--accent); }
+    button.small.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .narrative-box {
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
@@ -159,6 +186,44 @@
     function fmtTime(v) {
       if (!v) return "—";
       try { return new Date(v).toLocaleString(); } catch { return String(v); }
+    }
+
+    async function copyIncidentId(id) {
+      try {
+        await navigator.clipboard.writeText(id);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function narrativeText(body) {
+      if (!body) return "";
+      if (typeof body === "string") return body;
+      if (body.summary) return body.summary;
+      if (body.text) return body.text;
+      return JSON.stringify(body, null, 2);
+    }
+
+    async function loadNarrativePanel(id) {
+      const box = document.getElementById("narrative-body");
+      const meta = document.getElementById("narrative-meta");
+      if (!box) return;
+      box.textContent = "Loading…";
+      try {
+        const r = await fetch(`${API}/api/v1/incidents/${id}/narrative`);
+        const data = await r.json();
+        const nar = data.narrative;
+        if (!nar) {
+          box.textContent = "No narrative yet — click Generate (template or OpenAI if configured).";
+          if (meta) meta.textContent = "";
+          return;
+        }
+        box.textContent = narrativeText(nar);
+        if (meta) meta.textContent = `provider: ${data.provider || "—"}`;
+      } catch (e) {
+        box.textContent = String(e);
+      }
     }
 
     async function loadList() {
@@ -221,13 +286,21 @@
         `).join("") || "<li>No signals</li>";
 
         el.innerHTML = `
-          <h2>${id}</h2>
+          <h2 style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+            <code>${id}</code>
+            <button type="button" class="small" id="copy-id">Copy ID</button>
+            <span class="meta" id="copy-msg"></span>
+          </h2>
           <p class="meta">Window ${fmtTime(timeline.window && timeline.window.start)} → ${fmtTime(timeline.window && timeline.window.end)}</p>
-          <p>
-            <a href="${API}/api/v1/incidents/${id}/evidence" target="_blank">Evidence JSON</a> ·
-            <a href="${API}/api/v1/incidents/${id}/graph" target="_blank">Graph JSON</a> ·
-            <a href="${API}/api/v1/incidents/${id}/narrative" target="_blank">Narrative</a>
-          </p>
+          <div class="toolbar">
+            <a href="${API}/api/v1/incidents/${id}/evidence" target="_blank" rel="noopener">Evidence JSON</a>
+            <a href="${API}/api/v1/incidents/${id}/graph" target="_blank" rel="noopener">Graph JSON</a>
+            <a href="${API}/api/v1/incidents/${id}/narrative" target="_blank" rel="noopener">Narrative JSON</a>
+            <button type="button" class="small primary" id="gen-narrative">Generate narrative</button>
+          </div>
+          <h3>Narrative</h3>
+          <p class="meta" id="narrative-meta"></p>
+          <div class="narrative-box" id="narrative-body">Loading…</div>
           <h3>Root cause candidates</h3>
           <table>
             <thead><tr><th>#</th><th>Service</th><th>Score</th><th>Method</th></tr></thead>
@@ -236,7 +309,7 @@
           <h3>Timeline</h3>
           <ul class="timeline">${events}</ul>
           <div class="feedback">
-            <h3 style="margin-top:0">Operator feedback (Phase J)</h3>
+            <h3 style="margin-top:0">Operator feedback</h3>
             <p class="meta">Tell Causeway the true root service — stored for RCA quality metrics.</p>
             <form id="feedback-form">
               <input id="actual_root" name="actual_root" placeholder="svc:payment-svc" required />
@@ -245,6 +318,27 @@
             <p class="meta" id="feedback-msg"></p>
           </div>
         `;
+        document.getElementById("copy-id").addEventListener("click", async () => {
+          const ok = await copyIncidentId(id);
+          const cm = document.getElementById("copy-msg");
+          cm.textContent = ok ? "Copied" : "Copy failed";
+          setTimeout(() => { cm.textContent = ""; }, 2000);
+        });
+        document.getElementById("gen-narrative").addEventListener("click", async () => {
+          const btn = document.getElementById("gen-narrative");
+          btn.disabled = true;
+          btn.textContent = "Generating…";
+          try {
+            await fetch(`${API}/api/v1/incidents/${id}/narrate`, { method: "POST" });
+            await loadNarrativePanel(id);
+          } catch (e) {
+            document.getElementById("narrative-body").textContent = String(e);
+          } finally {
+            btn.disabled = false;
+            btn.textContent = "Generate narrative";
+          }
+        });
+        loadNarrativePanel(id);
         document.getElementById("feedback-form").addEventListener("submit", async (ev) => {
           ev.preventDefault();
           const root = document.getElementById("actual_root").value.trim();

@@ -21,4 +21,5 @@ jobs:
             detectors/test_detectors.py \
             detectors/test_saturation_fault.py \
             correlator/test_dedupe.py \
-            localiser/test_blame_weights.py -v
+            localiser/test_blame_weights.py \
+            bench/test_replay_dedupe.py -v

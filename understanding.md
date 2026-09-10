@@ -338,6 +338,7 @@ meshgen → otel-collector → VictoriaMetrics ← vmagent (mesh /metrics)
 | **H3** | `make verify-alerts-live` — vmalert → AM → API → Kafka | **Done** |
 | **I** | Operator UI at `/ui` + `GET .../timeline` | **Done** |
 | **J** | Feedback report, `/metrics/rca`, tunable blame weights, UI feedback | **Done** |
+| **J+** | Live demo script, UI copy ID + narrative panel, alert+latency bench fixture | **Done** |
 
 ---
 
@@ -358,6 +359,8 @@ When you finish something, write it in **Build log** below.
 ```bash
 make up              # start everything (including fake app)
 make ui              # http://localhost:8000/ui
+make demo-script     # print 5-min interview demo steps (Phase J+)
+make demo-run        # demo-script --run (needs make up)
 make test            # unit tests (13+ tests)
 make bench           # check root-cause accuracy on saved data
 make demo            # break payment + load (needs full stack)
@@ -656,6 +659,7 @@ A: Today: logs + `make verify-*`. Production: metrics on detector lag, consumer 
 | 2026-09-10 | Phase H3: verify-alerts-live (vmalert → Alertmanager → Kafka). |
 | 2026-09-10 | Phase I: operator UI at /ui + GET .../timeline API. |
 | 2026-09-10 | Phase J: feedback report, /metrics/rca, blame env weights, UI feedback form. |
+| 2026-09-10 | Phase J+: `make demo-script`, UI copy ID + narrative panel, `payment_alert_latency` bench fixture + dedupe in replay. |
 
 ---
 

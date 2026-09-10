@@ -8,13 +8,14 @@ from pathlib import Path
 
 from correlator.affinity import pairwise_distance
 from correlator.cluster import cluster_signals
+from bench.replay import dedupe_signals
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def replay_correlate(path: Path) -> dict:
     fx = json.loads(path.read_text())
-    signals = fx["signals"]
+    signals = dedupe_signals(fx["signals"])
     edges = fx.get("edges") or []
     expected = int(fx.get("expected_incidents", 1))
     dist = pairwise_distance(signals, edges)

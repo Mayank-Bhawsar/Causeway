@@ -5,15 +5,27 @@ import argparse
 import json
 from pathlib import Path
 
+from correlator.dedupe import merge_into_buffer
 from localiser.blame import rank_by_blame
 from localiser.rank import rank_by_severity
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+def dedupe_signals(signals: list[dict]) -> list[dict]:
+    """Mirror correlator window dedupe before offline RCA scoring."""
+    buf: list[dict] = []
+    for sig in signals:
+        merge_into_buffer(buf, sig)
+    return buf
+
+
 def replay_fixture(path: Path) -> dict:
     fx = json.loads(path.read_text())
-    signals = fx["signals"]
+    raw = fx["signals"]
+    signals = dedupe_signals(raw)
+    expected_n = fx.get("expected_signal_count")
+    dedupe_ok = expected_n is None or len(signals) == int(expected_n)
     edges = fx.get("edges") or []
     true_root = fx["true_root"]
     # Multi-incident fixtures are scored by replay_correlate, not top-1 ranking.
@@ -40,9 +52,11 @@ def replay_fixture(path: Path) -> dict:
         "top1": top1,
         "top3": ranked[:3],
         "method": (cands[0]["features"].get("method") if cands else None),
-        "top1_ok": top1 == true_root,
-        "top3_ok": true_root in ranked[:3],
+        "top1_ok": top1 == true_root and dedupe_ok,
+        "top3_ok": true_root in ranked[:3] and dedupe_ok,
+        "raw_signal_count": len(raw),
         "signal_count": len(signals),
+        "dedupe_ok": dedupe_ok,
         "skipped_rank": False,
     }
 

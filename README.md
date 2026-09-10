@@ -8,7 +8,9 @@ Local AIOps engine: topology from OTel servicegraph → correlate signals → bl
 make up
 make build
 make demo          # payment-svc latency + load (~90s)
-make ui            # operator UI + feedback form; http://localhost:8000/ui
+make ui            # operator UI; http://localhost:8000/ui
+make demo-script   # 5-min live demo talking points (Phase J+)
+make demo-run      # automated demo steps (still ~2 min correlator wait)
 # wait ~2 minutes for topology + correlator window
 make score         # expect svc:payment-svc
 make feedback

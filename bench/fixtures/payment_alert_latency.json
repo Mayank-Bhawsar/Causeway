@@ -1,0 +1,50 @@
+{
+  "scenario": "payment_alert_latency",
+  "true_root": "svc:payment-svc",
+  "expected_incidents": 1,
+  "expected_signal_count": 3,
+  "blast": ["svc:checkout-svc", "svc:frontend"],
+  "signals": [
+    {
+      "signal_id": "sig_fixture_lat",
+      "kind": "trace_latency_shift",
+      "node_id": "svc:payment-svc",
+      "severity": 0.55,
+      "onset_at": "2026-09-01T14:19:00.000000Z",
+      "observed_at": "2026-09-01T14:19:05.000000Z",
+      "payload": {"latency_ms": 500.9, "z_score": 3.4, "service_name": "payment-svc"}
+    },
+    {
+      "signal_id": "sig_fixture_alert",
+      "kind": "alert",
+      "node_id": "svc:payment-svc",
+      "severity": 0.72,
+      "onset_at": "2026-09-01T14:18:55.000000Z",
+      "observed_at": "2026-09-01T14:19:10.000000Z",
+      "payload": {"alertname": "HighServiceLatency", "source": "vmalert"}
+    },
+    {
+      "signal_id": "sig_fixture_2",
+      "kind": "trace_latency_shift",
+      "node_id": "svc:checkout-svc",
+      "severity": 0.40,
+      "onset_at": "2026-09-01T14:19:16.863160Z",
+      "observed_at": "2026-09-01T14:19:16.863160Z",
+      "payload": {}
+    },
+    {
+      "signal_id": "sig_fixture_3",
+      "kind": "trace_latency_shift",
+      "node_id": "svc:frontend",
+      "severity": 0.42,
+      "onset_at": "2026-09-01T14:19:20.000000Z",
+      "observed_at": "2026-09-01T14:19:20.000000Z",
+      "payload": {}
+    }
+  ],
+  "edges": [
+    {"src": "svc:frontend", "dst": "svc:checkout-svc", "calls": 50, "call_share": 0.06},
+    {"src": "svc:checkout-svc", "dst": "svc:payment-svc", "calls": 51, "call_share": 0.06},
+    {"src": "svc:frontend", "dst": "svc:cart-svc", "calls": 50, "call_share": 0.06}
+  ]
+}
