@@ -1,4 +1,4 @@
-.PHONY: help up down build build-fast dns-fix logs demo demo-script demo-run score graph health seed-gt feedback feedback-report evidence action narrate narrative bench bench-correlate test verify-alerts verify-alerts-live traffic verify-all verify-live verify-mesh-metrics ui
+.PHONY: help up down build build-fast dns-fix logs demo demo-script demo-run demo-e2e score graph health seed-gt feedback feedback-report evidence action narrate narrative bench bench-correlate test verify-alerts verify-alerts-live traffic verify-all verify-live verify-mesh-metrics ui
 
 API      ?= http://localhost:8000
 EXPECTED ?= svc:payment-svc
@@ -22,6 +22,7 @@ help:
 	@echo "  make traffic     - steady load on mesh (seconds, default 120)"
 	@echo "  make verify-all  - test + bench + verify-alerts"
 	@echo "  make verify-live - mesh fault + wait + score top-1 (slow ~3 min)"
+	@echo "  make demo-e2e    - certified demo: preflight + warm + fault + score (~4 min)"
 	@echo "  make ui          - open operator UI at http://localhost:8000/ui"
 	@echo "  make health    - hit /healthz"
 	@echo "  make demo      - inject payment fault + load"
@@ -74,6 +75,9 @@ verify-all: test bench verify-alerts verify-mesh-metrics
 
 verify-live:
 	bash scripts/verify_live.sh
+
+demo-e2e:
+	bash scripts/demo_e2e.sh
 
 verify-mesh-metrics:
 	bash scripts/verify_mesh_metrics.sh

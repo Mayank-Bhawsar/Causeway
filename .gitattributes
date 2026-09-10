@@ -1,0 +1,2 @@
+# Bash scripts must use LF so WSL/Linux `set -o pipefail` works.
+*.sh text eol=lf

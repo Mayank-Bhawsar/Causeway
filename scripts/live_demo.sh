@@ -22,6 +22,7 @@ step "0 · Before the room (2 min)" \
 "Terminal 1: make up
 Terminal 2 (optional): make logs
 Browser: http://localhost:8000/ui
+Certify before presenting: make demo-e2e   (or make verify-live for a shorter check)
 Say: 'Synthetic shop mesh → OTel → VictoriaMetrics; worker detects + correlates in 90s windows.'"
 
 step "1 · Start traffic + fault (~30 s talking)" \

@@ -351,7 +351,7 @@ meshgen → otel-collector → VictoriaMetrics ← vmagent (mesh /metrics)
 |-------|------|--------|
 | **L** | Optional depth | Deploy signals, Grafana dashboard, pgvector, incident merge/split |
 
-**Run now:** `make verify-live` (full stack, ~3 min) · set `INGEST_API_KEY` / `API_READ_KEY` in `.env` for hardened demo · worker health: `curl localhost:8085/healthz`
+**Run now:** `make demo-e2e` (certified live demo, ~4 min, needs `make up`) · `make verify-live` (shorter path) · worker: `curl localhost:8085/healthz`
 
 When you finish something, write it in **Build log** below.
 
@@ -361,6 +361,7 @@ When you finish something, write it in **Build log** below.
 
 ```bash
 make up              # start everything (including fake app)
+make demo-e2e        # certified E2E: preflight + warm + topology + fault + score (~4 min)
 make ui              # http://localhost:8000/ui
 make demo-script     # print 5-min interview demo steps (Phase J+)
 make demo-run        # demo-script --run (needs make up)
@@ -551,7 +552,8 @@ make score           # top-1 vs payment-svc
 | `make verify-alerts` | API ingest path (sample webhook) |
 | `make verify-mesh-metrics` | vmagent → VM |
 | `make verify-alerts-live` | vmalert → AM → API → Kafka (slow) |
-| `make verify-live` | Full mesh → incident → top-1 score (slow) |
+| `make demo-e2e` | **Certified** live demo: preflight, warm traffic, topology checks, fault, poll incident, top-1 |
+| `make verify-live` | Shorter live path (30s warm + fault + poll + score) |
 | `make verify-all` | test + bench + alerts + mesh metrics (stack up) |
 
 ### Environment variables (ops cheat sheet)
@@ -689,6 +691,7 @@ Compose → Kubernetes is mostly **one Deployment per service** plus shared conf
 | 2026-09-10 | Phase J: feedback report, /metrics/rca, blame env weights, UI feedback form. |
 | 2026-09-10 | Phase J+: `make demo-script`, UI copy ID + narrative panel, `payment_alert_latency` bench fixture + dedupe in replay. |
 | 2026-09-10 | Phase K: optional API keys, worker :8085 health, bench CI job, K8s migration sketch in docs. |
+| 2026-09-10 | E2E demo: `make demo-e2e`, shared `scripts/e2e_helpers.sh`, hardened `verify-live` (poll + warm-up). |
 
 ---
 

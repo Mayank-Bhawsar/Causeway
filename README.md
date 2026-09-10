@@ -4,6 +4,16 @@ Local AIOps engine: topology from OTel servicegraph → correlate signals → bl
 
 ## Demo
 
+**Certified E2E (stack must be up):**
+
+```bash
+make up
+make build          # after code changes
+make demo-e2e       # preflight + warm + fault + poll incident + top-1 score (~4 min)
+```
+
+**Manual rehearsal:**
+
 ```bash
 make up
 make build
@@ -34,4 +44,7 @@ make verify-all    # unit tests + bench + alert ingest + mesh metrics in VM
 make verify-mesh-metrics   # after make up, wait ~30s for first scrape
 make verify-alerts-live    # vmalert + fault + load → Kafka (~2-3 min)
 make verify-live   # live mesh demo + top-1 score (~3 min, needs make up)
+make demo-e2e      # full certified path (preflight + topology + score)
+# Optional: narrate + feedback during demo-e2e
+DEMO_E2E_NARRATE=1 make demo-e2e
 ```
