@@ -173,7 +173,7 @@ Different kinds go to different Kafka topics (traces vs alerts).
 | **vmalert + alertmanager** | Rules like “latency > X” → webhook to API |
 | **redpanda** | Kafka — message bus for signals |
 | **postgres** | Stores incidents, signals, evidence |
-| **causeway-api** | HTTP API on port **8000** |
+| **causeway-api** | HTTP API on port **8000** + operator UI at **`/ui`** |
 | **causeway-worker** | Detects problems, reads Kafka, creates incidents |
 
 **Ports:** `8000` API · `8080` shop front · `8081` payment (for faults) · `8428` metrics UI/query
@@ -184,7 +184,7 @@ Different kinds go to different Kafka topics (traces vs alerts).
 
 | Folder | You open this when… |
 |--------|---------------------|
-| `api/` | HTTP routes: list incidents, narrate, ingest alerts |
+| `api/` | HTTP routes + serves **`ui/index.html`** |
 | `worker/main.py` | Three loops: Kafka consumer, detectors, topology refresh |
 | `detectors/` | Latency + error + **saturation** detection |
 | `correlator/` | 90s window, clustering, save incident |
@@ -230,6 +230,7 @@ Different kinds go to different Kafka topics (traces vs alerts).
 | **H1** | vmagent scrapes mesh `/metrics` → VictoriaMetrics | **Done** |
 | **H2** | Saturation fires on `meshgen_fault_active` (injected fault) | **Done** |
 | **H3** | `make verify-alerts-live` — vmalert → AM → API → Kafka | **Done** |
+| **I** | Operator UI at `/ui` + `GET .../timeline` | **Done** |
 
 ---
 
@@ -237,9 +238,8 @@ Different kinds go to different Kafka topics (traces vs alerts).
 
 | Phase | Goal | Ideas |
 |-------|------|--------|
-| **I** | Operator UX | Incident list UI or Grafana dashboard |
-| **J** | Learning loop | Use `feedback` table to tune ranker weights |
-| **K** | Production hardening | API auth, multi-worker Kafka consumer group |
+| **J** | Learning loop | Feedback report; tune ranker from `feedback` table |
+| **K** | Production hardening | API auth, multi-worker Kafka consumers |
 
 **Run now:** `make verify-live` (full stack, ~3 min) · `docker compose --profile opa up -d opa` + `OPA_URL=http://opa:8181` for policy tests.
 
@@ -251,6 +251,7 @@ When you finish something, write it in **Build log** below.
 
 ```bash
 make up              # start everything (including fake app)
+make ui              # http://localhost:8000/ui
 make test            # unit tests (13+ tests)
 make bench           # check root-cause accuracy on saved data
 make demo            # break payment + load (needs full stack)
@@ -316,6 +317,7 @@ Validator checks every claim against IDs in the evidence pack (`EV-SIG-0001`, et
 | 2026-09-10 | Phase H1: vmagent scrapes meshgen `/metrics` into VictoriaMetrics. |
 | 2026-09-10 | Phase H2: saturation detector uses `meshgen_fault_active` with stable onset. |
 | 2026-09-10 | Phase H3: verify-alerts-live (vmalert → Alertmanager → Kafka). |
+| 2026-09-10 | Phase I: operator UI at /ui + GET .../timeline API. |
 
 ---
 

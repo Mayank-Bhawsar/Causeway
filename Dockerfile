@@ -14,6 +14,7 @@ COPY actions ./actions
 COPY bench ./bench
 COPY worker ./worker
 COPY scripts ./scripts
+COPY ui ./ui
 
 RUN pip install --no-cache-dir -e ".[dev]"
 

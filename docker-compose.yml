@@ -89,6 +89,7 @@ services:
       - ./detectors:/app/detectors
       - ./actions:/app/actions
       - ./scripts:/app/scripts
+      - ./ui:/app/ui
     depends_on:
       postgres:
         condition: service_healthy

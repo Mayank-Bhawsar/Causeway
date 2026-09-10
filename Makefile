@@ -1,4 +1,4 @@
-.PHONY: help up down build build-fast dns-fix logs demo score graph health seed-gt feedback evidence action narrate narrative bench bench-correlate test verify-alerts verify-alerts-live traffic verify-all verify-live verify-mesh-metrics
+.PHONY: help up down build build-fast dns-fix logs demo score graph health seed-gt feedback evidence action narrate narrative bench bench-correlate test verify-alerts verify-alerts-live traffic verify-all verify-live verify-mesh-metrics ui
 
 API      ?= http://localhost:8000
 EXPECTED ?= svc:payment-svc
@@ -22,7 +22,7 @@ help:
 	@echo "  make traffic     - steady load on mesh (seconds, default 120)"
 	@echo "  make verify-all  - test + bench + verify-alerts"
 	@echo "  make verify-live - mesh fault + wait + score top-1 (slow ~3 min)"
-	@echo "  make verify-mesh-metrics - vmagent scraped mesh /metrics into VM"
+	@echo "  make ui          - open operator UI at http://localhost:8000/ui"
 	@echo "  make health    - hit /healthz"
 	@echo "  make demo      - inject payment fault + load"
 	@echo "  make score     - score latest incident top-1"
@@ -74,6 +74,9 @@ verify-live:
 
 verify-mesh-metrics:
 	bash scripts/verify_mesh_metrics.sh
+
+ui:
+	@echo "Operator UI: http://localhost:8000/ui  (or http://localhost:8000/)"
 
 health:
 	curl -s $(API)/healthz | python3 -m json.tool

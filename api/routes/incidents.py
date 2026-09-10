@@ -29,10 +29,15 @@ async def list_incidents() -> dict:
     try:
         rows = await conn.fetch(
             """
-            SELECT incident_id, signal_count, status, lower(win) AS win_start,
-                    upper(win) AS win_end, created_at
-            FROM incident
-            ORDER BY created_at DESC
+            SELECT i.incident_id, i.signal_count, i.status,
+                   lower(i.win) AS win_start, upper(i.win) AS win_end, i.created_at,
+                   (
+                     SELECT c.node_id FROM cause_candidate c
+                     WHERE c.incident_id = i.incident_id
+                     ORDER BY c.rank LIMIT 1
+                   ) AS top_cause
+            FROM incident i
+            ORDER BY i.created_at DESC
             LIMIT 20
             """
         )
@@ -83,6 +88,43 @@ async def get_candidates(incident_id: str) -> dict:
         return {
             "incident_id": incident_id,
             "candidates": [dict(r) for r in rows],
+        }
+    finally:
+        await conn.close()
+
+
+@router.get("/incidents/{incident_id}/timeline")
+async def get_timeline(incident_id: str) -> dict:
+    """Signals for an incident ordered by onset (then observed)."""
+    conn = await asyncpg.connect(_dsn())
+    try:
+        inc = await conn.fetchrow(
+            "SELECT incident_id, status, lower(win) AS win_start, upper(win) AS win_end FROM incident WHERE incident_id = $1",
+            incident_id,
+        )
+        if not inc:
+            return {"error": "not found"}
+        rows = await conn.fetch(
+            """
+            SELECT s.signal_id, s.kind, s.node_id, s.severity,
+                   s.onset_at, s.observed_at, s.fingerprint, s.payload
+            FROM incident_signal i
+            JOIN signal s ON s.signal_id = i.signal_id
+            WHERE i.incident_id = $1
+            ORDER BY s.onset_at ASC, s.observed_at ASC
+            """,
+            incident_id,
+        )
+        events = []
+        for r in rows:
+            d = dict(r)
+            d["payload"] = _parse_jsonb(d.get("payload"))
+            events.append(d)
+        return {
+            "incident_id": incident_id,
+            "status": inc["status"],
+            "window": {"start": inc["win_start"], "end": inc["win_end"]},
+            "events": events,
         }
     finally:
         await conn.close()

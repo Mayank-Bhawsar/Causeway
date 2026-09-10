@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Causeway — Incidents</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3d8bfd;
+      --ok: #3dd68c;
+      --warn: #ffb020;
+      --border: #2a3544;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    header h1 { font-size: 1.15rem; margin: 0; font-weight: 600; }
+    header p { margin: 0; color: var(--muted); font-size: 0.85rem; }
+    main { display: grid; grid-template-columns: 320px 1fr; min-height: calc(100vh - 64px); }
+    @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+    aside {
+      border-right: 1px solid var(--border);
+      padding: 0.75rem;
+      overflow: auto;
+    }
+    section { padding: 1rem 1.25rem; overflow: auto; }
+    .incident {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem 0.75rem;
+      margin-bottom: 0.5rem;
+      color: inherit;
+      cursor: pointer;
+    }
+    .incident:hover, .incident.active { border-color: var(--accent); }
+    .incident .id { font-family: ui-monospace, monospace; font-size: 0.8rem; }
+    .incident .meta { color: var(--muted); font-size: 0.78rem; margin-top: 0.25rem; }
+    .badge {
+      display: inline-block;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      background: #243044;
+      color: var(--muted);
+    }
+    .badge.open { color: var(--warn); background: #3a2a14; }
+    h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
+    h3 { margin: 1.25rem 0 0.5rem; font-size: 0.95rem; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { text-align: left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; }
+    .timeline li {
+      list-style: none;
+      border-left: 2px solid var(--border);
+      padding: 0 0 0.85rem 0.85rem;
+      margin-left: 0.35rem;
+      position: relative;
+    }
+    .timeline li::before {
+      content: "";
+      width: 8px; height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      position: absolute;
+      left: -5px;
+      top: 0.35rem;
+    }
+    .timeline time { color: var(--muted); font-size: 0.78rem; }
+    .empty { color: var(--muted); padding: 2rem 0; }
+    button.refresh {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.35rem 0.65rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    button.refresh:hover { border-color: var(--accent); }
+    a { color: var(--accent); }
+    pre {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      overflow: auto;
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Causeway</h1>
+      <p>Topology-aware incidents · read-only operator view</p>
+    </div>
+    <button class="refresh" type="button" id="refresh">Refresh</button>
+  </header>
+  <main>
+    <aside>
+      <h2>Incidents</h2>
+      <div id="list" class="empty">Loading…</div>
+    </aside>
+    <section id="detail">
+      <p class="empty">Select an incident or run <code>make demo</code> to create one.</p>
+    </section>
+  </main>
+  <script>
+    const API = "";
+    let selectedId = null;
+
+    function fmtTime(v) {
+      if (!v) return "—";
+      try { return new Date(v).toLocaleString(); } catch { return String(v); }
+    }
+
+    async function loadList() {
+      const el = document.getElementById("list");
+      try {
+        const r = await fetch(`${API}/api/v1/incidents`);
+        const data = await r.json();
+        const items = data.incidents || [];
+        if (!items.length) {
+          el.innerHTML = "<p class=\"empty\">No incidents yet.</p>";
+          return;
+        }
+        el.innerHTML = items.map((inc) => `
+          <button type="button" class="incident ${inc.incident_id === selectedId ? "active" : ""}"
+            data-id="${inc.incident_id}">
+            <div class="id">${inc.incident_id}</div>
+            <div class="meta">
+              <span class="badge ${inc.status}">${inc.status}</span>
+              ${inc.signal_count} signals · top ${inc.top_cause || "—"}
+            </div>
+            <div class="meta">${fmtTime(inc.created_at)}</div>
+          </button>
+        `).join("");
+        el.querySelectorAll(".incident").forEach((btn) => {
+          btn.addEventListener("click", () => loadDetail(btn.dataset.id));
+        });
+        if (!selectedId && items[0]) loadDetail(items[0].incident_id);
+      } catch (e) {
+        el.innerHTML = `<p class="empty">Failed to load: ${e}</p>`;
+      }
+    }
+
+    async function loadDetail(id) {
+      selectedId = id;
+      document.querySelectorAll(".incident").forEach((b) => {
+        b.classList.toggle("active", b.dataset.id === id);
+      });
+      const el = document.getElementById("detail");
+      el.innerHTML = "<p class=\"empty\">Loading detail…</p>";
+      try {
+        const [cands, timeline] = await Promise.all([
+          fetch(`${API}/api/v1/incidents/${id}/candidates`).then((r) => r.json()),
+          fetch(`${API}/api/v1/incidents/${id}/timeline`).then((r) => r.json()),
+        ]);
+        const rows = (cands.candidates || []).map((c) => `
+          <tr>
+            <td>${c.rank}</td>
+            <td><code>${c.node_id}</code></td>
+            <td>${Number(c.score).toFixed(3)}</td>
+            <td>${(c.features && c.features.method) || "—"}</td>
+          </tr>
+        `).join("") || "<tr><td colspan=\"4\">No candidates</td></tr>";
+
+        const events = (timeline.events || []).map((ev) => `
+          <li>
+            <strong>${ev.kind}</strong> · <code>${ev.node_id}</code>
+            · sev ${Number(ev.severity).toFixed(2)}
+            <br /><time>onset ${fmtTime(ev.onset_at)} · seen ${fmtTime(ev.observed_at)}</time>
+          </li>
+        `).join("") || "<li>No signals</li>";
+
+        el.innerHTML = `
+          <h2>${id}</h2>
+          <p class="meta">Window ${fmtTime(timeline.window && timeline.window.start)} → ${fmtTime(timeline.window && timeline.window.end)}</p>
+          <p>
+            <a href="${API}/api/v1/incidents/${id}/evidence" target="_blank">Evidence JSON</a> ·
+            <a href="${API}/api/v1/incidents/${id}/graph" target="_blank">Graph JSON</a> ·
+            <a href="${API}/api/v1/incidents/${id}/narrative" target="_blank">Narrative</a>
+          </p>
+          <h3>Root cause candidates</h3>
+          <table>
+            <thead><tr><th>#</th><th>Service</th><th>Score</th><th>Method</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <h3>Timeline</h3>
+          <ul class="timeline">${events}</ul>
+        `;
+      } catch (e) {
+        el.innerHTML = `<p class="empty">Failed: ${e}</p>`;
+      }
+    }
+
+    document.getElementById("refresh").addEventListener("click", () => {
+      loadList();
+      if (selectedId) loadDetail(selectedId);
+    });
+    loadList();
+  </script>
+</body>
+</html>
