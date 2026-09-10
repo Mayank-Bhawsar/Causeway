@@ -69,10 +69,11 @@ async def detect_loop() -> None:
                         )
                         z = (signal.payload or {}).get("z_score")
                         extra = (signal.payload or {}).get("calls_per_min")
+                        fault = (signal.payload or {}).get("fault_active")
                         print(
                             f"detected topic={signal.kafka_topic()} "
                             f"kind={signal.kind.value} node={signal.node_id} "
-                            f"sev={signal.severity:.2f} z={z} cpm={extra}",
+                            f"sev={signal.severity:.2f} z={z} cpm={extra} fault={fault}",
                             flush=True,
                         )
             finally:

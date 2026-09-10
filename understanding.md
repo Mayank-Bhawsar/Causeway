@@ -117,6 +117,8 @@ For each service (example: `payment-svc`):
 
 Settings in `docker-compose.yml`: `DETECT_Z=3`, check every `DETECT_INTERVAL_SEC=15`.
 
+**Saturation (Phase G/H2):** `detectors/saturation.py` also queries **`meshgen_fault_active`** in VictoriaMetrics (from vmagent). When you inject a fault on a service, severity ~0.85 and **`fault_active: 1`** in the signal payload. Worker logs show `fault=1`.
+
 ---
 
 ## How grouping works (Phase C — simple)
@@ -226,6 +228,7 @@ Different kinds go to different Kafka topics (traces vs alerts).
 | **F** | Slack on incident; action policy (OPA-ready); traffic helper | **Done (Slack needs webhook URL)** |
 | **G** | Saturation detector; error bench fixture; verify-live; GitHub CI | **Done** |
 | **H1** | vmagent scrapes mesh `/metrics` → VictoriaMetrics | **Done** |
+| **H2** | Saturation fires on `meshgen_fault_active` (injected fault) | **Done** |
 
 ---
 
@@ -233,7 +236,6 @@ Different kinds go to different Kafka topics (traces vs alerts).
 
 | Phase | Goal | Ideas |
 |-------|------|--------|
-| **H2** | Use `meshgen_fault_active` in saturation detector | Fire when fault injected on service |
 | **H3** | `verify-alerts-live` under steady traffic | vmalert + Alertmanager path |
 | **I** | Operator UX | Incident list UI or Grafana dashboard |
 | **J** | Learning loop | Use `feedback` table to tune ranker weights |
@@ -311,6 +313,7 @@ Validator checks every claim against IDs in the evidence pack (`EV-SIG-0001`, et
 | 2026-09-10 | Phase E/F: dedupe, verify-alerts, traffic, Slack notify, action policy, OPA rego stub. |
 | 2026-09-10 | Phase G: saturation detector, checkout_errors bench, verify-live, GitHub CI, OPA compose profile. |
 | 2026-09-10 | Phase H1: vmagent scrapes meshgen `/metrics` into VictoriaMetrics. |
+| 2026-09-10 | Phase H2: saturation detector uses `meshgen_fault_active` with stable onset. |
 
 ---
 

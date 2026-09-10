@@ -39,4 +39,14 @@ r = d.get('data', {}).get('result', [])
 print('payment_svc_samples', len(r))
 "
 
+echo "=== verify-mesh-metrics: fault gauge (payment-svc after demo fault) ==="
+curl -sf -G "$VM/api/v1/query" \
+  --data-urlencode 'query=meshgen_fault_active{service="payment-svc"}' \
+  | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+r = d.get('data', {}).get('result', [])
+print('payment_fault_series', len(r))
+"
+
 echo "verify_mesh_metrics_ok"
