@@ -75,6 +75,7 @@ services:
       - ./localiser:/app/localiser
       - ./bench:/app/bench
       - ./evidence:/app/evidence
+      - ./detectors:/app/detectors
     depends_on:
       postgres:
         condition: service_healthy
@@ -91,6 +92,8 @@ services:
       KAFKA_BOOTSTRAP: redpanda:9092
       VM_URL: http://victoria-metrics:8428
       DETECT_LATENCY_MS: "200"
+      DETECT_Z: "3.0"
+      DETECT_MIN_SAMPLES: "3"
       DETECT_INTERVAL_SEC: "15"
       DATABASE_URL_SYNC: postgresql://causeway:causeway@postgres:5432/causeway
       CORR_WINDOW_SEC: "90"
@@ -99,6 +102,7 @@ services:
       - ./localiser:/app/localiser
       - ./evidence:/app/evidence
       - ./worker:/app/worker
+      - ./detectors:/app/detectors
     depends_on:
       redpanda:
         condition: service_healthy

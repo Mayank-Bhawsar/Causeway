@@ -14,7 +14,7 @@ COPY actions ./actions
 COPY bench ./bench
 COPY worker ./worker
 
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir -e ".[dev]"
 
 EXPOSE 8000
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -132,7 +132,7 @@ bench-correlate:
 
 test:
 	@if docker compose exec -T causeway-api python -c "import pytest" >/dev/null 2>&1; then \
-	  docker compose exec -T causeway-api pytest narrator/test_validate.py -v; \
+	  docker compose exec -T causeway-api pytest narrator/test_validate.py detectors/test_detectors.py -v; \
 	else \
-	  $(PYTHON) -m pytest narrator/test_validate.py -v; \
+	  $(PYTHON) -m pytest narrator/test_validate.py detectors/test_detectors.py -v; \
 	fi

@@ -4,8 +4,8 @@ import os
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
-from api.models.signal import Signal
 from detectors.latency import detect_latency_signals
+from detectors.errors import detect_error_signals
 from correlator.window import windowBuffer
 from correlator.db import connect
 from topology.persist import refresh_topology
@@ -18,10 +18,14 @@ TOPICS = [
     "signals.traces",
 ]
 
+DETECTORS = (
+    detect_latency_signals,
+    detect_error_signals,
+)
+
+
 async def consume() -> None:
     bootstrap = os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092")
-    
-    
     consumer = AIOKafkaConsumer(
         *TOPICS,
         bootstrap_servers=bootstrap,
@@ -41,29 +45,33 @@ async def consume() -> None:
             )
             inc = await buf.add(body)
             if inc:
-                print(f"correlator flushed {inc}", flush = True)
+                print(f"correlator flushed {inc}", flush=True)
     finally:
         await consumer.stop()
 
+
 async def detect_loop() -> None:
     bootstrap = os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092")
-    interval = int(os.getenv("DETECT_INTERVAL_SEC", "30"))
+    interval = int(os.getenv("DETECT_INTERVAL_SEC", "15"))
     while True:
         try:
             producer = AIOKafkaProducer(bootstrap_servers=bootstrap)
             await producer.start()
             try:
-                for signal in await detect_latency_signals():
-                    await producer.send_and_wait(
-                        signal.kafka_topic(),
-                        key=signal.kafka_key().encode(),
-                        value=signal.model_dump_json().encode(),
-                    )
-                    print(
-                        f"detected topic={signal.kafka_topic()} "
-                        f"node={signal.node_id} sev={signal.severity:.2f}",
-                        flush=True,
-                    )
+                for detect in DETECTORS:
+                    for signal in await detect():
+                        await producer.send_and_wait(
+                            signal.kafka_topic(),
+                            key=signal.kafka_key().encode(),
+                            value=signal.model_dump_json().encode(),
+                        )
+                        z = (signal.payload or {}).get("z_score")
+                        print(
+                            f"detected topic={signal.kafka_topic()} "
+                            f"kind={signal.kind.value} node={signal.node_id} "
+                            f"sev={signal.severity:.2f} z={z}",
+                            flush=True,
+                        )
             finally:
                 await producer.stop()
         except Exception as exc:  # noqa: BLE001
@@ -80,14 +88,14 @@ async def topology_loop() -> None:
                 await refresh_topology(conn)
             finally:
                 await conn.close()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             print(f"topology_loop error: {exc}", flush=True)
         await asyncio.sleep(interval)
 
 
-
 async def run() -> None:
     await asyncio.gather(consume(), detect_loop(), topology_loop())
+
 
 if __name__ == "__main__":
     asyncio.run(run())
