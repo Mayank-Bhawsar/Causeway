@@ -77,6 +77,9 @@ services:
       KAFKA_BOOTSTRAP: redpanda:9092
       DATABASE_URL_SYNC: postgresql://causeway:causeway@postgres:5432/causeway
       VM_URL: http://victoria-metrics:8428
+      INGEST_API_KEY: ${INGEST_API_KEY:-}
+      API_READ_KEY: ${API_READ_KEY:-}
+      WORKER_HEALTH_URL: http://causeway-worker:8085/healthz
     ports:
       - "8000:8000"
     volumes:
@@ -119,6 +122,16 @@ services:
       BLAME_ONSET_SEC: "60"
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
       CAUSEWAY_PUBLIC_URL: ${CAUSEWAY_PUBLIC_URL:-http://localhost:8000}
+      WORKER_HEALTH_PORT: "8085"
+      WORKER_HEARTBEAT_SEC: "30"
+    ports:
+      - "8085:8085"
+    healthcheck:
+      test: ["CMD", "python", "-m", "worker.check_health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
     volumes:
       - ./correlator:/app/correlator
       - ./localiser:/app/localiser

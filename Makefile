@@ -121,8 +121,11 @@ logs:
 
 feedback:
 	@INC=$(INC); \
+	INGEST_HDR=(); \
+	if [ -n "$${INGEST_API_KEY:-}" ]; then INGEST_HDR=(-H "Authorization: Bearer $$INGEST_API_KEY"); fi; \
 	curl -s -X POST "$(API)/api/v1/incidents/$$INC/feedback" \
 	  -H 'Content-Type: application/json' \
+	  "$${INGEST_HDR[@]}" \
 	  -d '{"actual_root":"svc:payment-svc","submitted_by":"local"}' \
 	  | python3 -m json.tool
 
@@ -175,7 +178,7 @@ bench-correlate:
 
 test:
 	@if docker compose exec -T causeway-api python -c "import pytest" >/dev/null 2>&1; then \
-	  docker compose exec -T causeway-api pytest narrator/test_validate.py detectors/test_detectors.py detectors/test_saturation_fault.py correlator/test_dedupe.py actions/test_policy.py localiser/test_blame_weights.py bench/test_replay_dedupe.py -v; \
+	  docker compose exec -T causeway-api pytest api/test_auth.py narrator/test_validate.py detectors/test_detectors.py detectors/test_saturation_fault.py correlator/test_dedupe.py actions/test_policy.py localiser/test_blame_weights.py bench/test_replay_dedupe.py -v; \
 	else \
-	  $(PYTHON) -m pytest narrator/test_validate.py detectors/test_detectors.py detectors/test_saturation_fault.py correlator/test_dedupe.py actions/test_policy.py localiser/test_blame_weights.py bench/test_replay_dedupe.py -v; \
+	  $(PYTHON) -m pytest api/test_auth.py narrator/test_validate.py detectors/test_detectors.py detectors/test_saturation_fault.py correlator/test_dedupe.py actions/test_policy.py localiser/test_blame_weights.py bench/test_replay_dedupe.py -v; \
 	fi

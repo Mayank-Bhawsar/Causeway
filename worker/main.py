@@ -10,6 +10,7 @@ from detectors.saturation import detect_saturation_signals
 from correlator.window import windowBuffer
 from correlator.db import connect
 from topology.persist import refresh_topology
+from worker.heartbeat import heartbeat_loop, health_server, write_heartbeat
 
 TOPICS = [
     "signals.alerts",
@@ -98,7 +99,14 @@ async def topology_loop() -> None:
 
 
 async def run() -> None:
-    await asyncio.gather(consume(), detect_loop(), topology_loop())
+    write_heartbeat({"phase": "starting"})
+    await asyncio.gather(
+        consume(),
+        detect_loop(),
+        topology_loop(),
+        heartbeat_loop(),
+        health_server(),
+    )
 
 
 if __name__ == "__main__":

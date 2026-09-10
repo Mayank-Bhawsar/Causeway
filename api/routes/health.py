@@ -49,5 +49,17 @@ async def healthz() -> dict:
     except Exception as exc:
         status['victoria-metrics'] = f"error: {exc}"
 
+    worker_url = os.getenv("WORKER_HEALTH_URL", "").strip()
+    if worker_url:
+        try:
+            async with AsyncClient(timeout=3.0) as client:
+                r = await client.get(worker_url)
+                if r.status_code == 200:
+                    status["causeway-worker"] = "ok"
+                else:
+                    status["causeway-worker"] = f"error: HTTP {r.status_code}"
+        except Exception as exc:
+            status["causeway-worker"] = f"error: {exc}"
+
     overall = "ok" if all(v == "ok" for v in status.values()) else "degraded"
     return {"status": overall, "components": status}

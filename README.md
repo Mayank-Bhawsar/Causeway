@@ -23,7 +23,9 @@ make narrate       # requires OPENAI_API_KEY + outbound HTTPS from Docker
 make narrative   # read stored narrative after narrate succeeds
 ```
 
-Set `OPENAI_API_KEY` in `.env`. The API container must reach `api.openai.com` (fix WSL/Docker DNS if you see `APIConnectionError`).
+Set `OPENAI_API_KEY` in `.env`. Optional Phase K keys: `INGEST_API_KEY`, `API_READ_KEY` (see `.env.example`).
+
+Worker health: `curl http://localhost:8085/healthz` after `make up`.
 
 Optional: `SLACK_WEBHOOK_URL` in `.env` for incident notifications. Optional: `OPA_URL` for external policy (`deploy/opa/policy.rego`); start OPA with `docker compose --profile opa up -d opa`.
 

@@ -10,3 +10,8 @@ receivers:
     webhook_configs:
       - url: http://causeway-api:8000/ingest/alerts
         send_resolved: false
+        # When INGEST_API_KEY is set on causeway-api, uncomment and set credentials:
+        # http_config:
+        #   authorization:
+        #     type: Bearer
+        #     credentials: "<same-as-INGEST_API_KEY>"

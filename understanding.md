@@ -176,9 +176,9 @@ Different kinds go to different Kafka topics (traces vs alerts).
 | **redpanda** | Kafka — message bus for signals |
 | **postgres** | Stores incidents, signals, evidence |
 | **causeway-api** | HTTP API on port **8000** + operator UI at **`/ui`** |
-| **causeway-worker** | Detects problems, reads Kafka, creates incidents |
+| **causeway-worker** | Detects problems, reads Kafka, creates incidents · **health :8085/healthz** |
 
-**Ports:** `8000` API · `8080` shop front · `8081` payment (for faults) · `8428` metrics UI/query
+**Ports:** `8000` API · `8080` shop front · `8081` payment (for faults) · `8085` worker health · `8428` metrics UI/query
 
 ---
 
@@ -259,8 +259,10 @@ All messages share the same **`Signal` JSON** shape.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/healthz` | Liveness |
-| POST | `/ingest/signal`, `/ingest/alerts` | Push signals to Kafka |
+| GET | `/healthz` | Liveness (+ deps; optional worker via `WORKER_HEALTH_URL`) |
+| POST | `/ingest/signal`, `/ingest/alerts` | Push signals to Kafka (**`INGEST_API_KEY`** if set) |
+| GET | `/api/v1/*` | Incidents, metrics (**`API_READ_KEY`** if set) |
+| POST | `/api/v1/incidents/...` | narrate, feedback, actions (**`INGEST_API_KEY`** if set) |
 | GET | `/api/v1/incidents` | List incidents (+ `top_cause`) |
 | GET | `/api/v1/incidents/{id}/candidates` | Ranked RCA list |
 | GET | `/api/v1/incidents/{id}/timeline` | Signals ordered by onset |
@@ -339,6 +341,7 @@ meshgen → otel-collector → VictoriaMetrics ← vmagent (mesh /metrics)
 | **I** | Operator UI at `/ui` + `GET .../timeline` | **Done** |
 | **J** | Feedback report, `/metrics/rca`, tunable blame weights, UI feedback | **Done** |
 | **J+** | Live demo script, UI copy ID + narrative panel, alert+latency bench fixture | **Done** |
+| **K** | Ingest/read API keys, worker `/healthz`, bench in CI, K8s sketch doc | **Done** |
 
 ---
 
@@ -346,9 +349,9 @@ meshgen → otel-collector → VictoriaMetrics ← vmagent (mesh /metrics)
 
 | Phase | Goal | Ideas |
 |-------|------|--------|
-| **K** | Production hardening | Ingest API key, `make bench` in CI, worker health |
+| **L** | Optional depth | Deploy signals, Grafana dashboard, pgvector, incident merge/split |
 
-**Run now:** `make verify-live` (full stack, ~3 min) · `docker compose --profile opa up -d opa` + `OPA_URL=http://opa:8181` for policy tests.
+**Run now:** `make verify-live` (full stack, ~3 min) · set `INGEST_API_KEY` / `API_READ_KEY` in `.env` for hardened demo · worker health: `curl localhost:8085/healthz`
 
 When you finish something, write it in **Build log** below.
 
@@ -396,7 +399,7 @@ After editing detectors: `docker compose restart causeway-worker`
 “We don’t only threshold at 200ms — we learn a baseline, detect when change started, cluster related signals, and rank on the topology graph.”
 
 **If they ask “what’s missing for production?”**  
-“Single worker, no API auth, suggest-only actions — it’s a strong **prototype** on Docker.”
+“Single worker HA, full OAuth, and multi-tenant UI auth—but Phase **K** added optional ingest/read keys, worker health, and bench in CI; I’d deploy on K8s with the sketch in our docs.”
 
 **One line to remember:**  
 *“Group related signals, rank root cause on the call graph, explain with evidence.”*
@@ -565,6 +568,11 @@ make score           # top-1 vs payment-svc
 | `SLACK_WEBHOOK_URL` | worker | Optional incident notification |
 | `OPENAI_API_KEY` | api | LLM narrate (template fallback if unset) |
 | `OPA_URL` | api | Optional external policy for actions |
+| `INGEST_API_KEY` | api | Bearer / `X-API-Key` on `/ingest/*` and write `POST /api/v1/*` (Phase K) |
+| `API_READ_KEY` | api | Bearer / `X-API-Key` on `GET /api/v1/*` (Phase K; UI needs proxy or custom headers) |
+| `WORKER_HEALTH_URL` | api | Optional; e.g. `http://causeway-worker:8085/healthz` in Compose |
+| `WORKER_HEALTH_PORT` | worker | HTTP liveness (default **8085**) |
+| `WORKER_HEARTBEAT_SEC` | worker | Touch heartbeat file interval (default 30) |
 | `DOCKER_BUILDKIT=0` | Makefile | WSL/DNS workaround for image builds |
 
 ### Debugging playbook
@@ -581,8 +589,8 @@ make score           # top-1 vs payment-svc
 
 ### CI/CD (what runs today)
 
-- **GitHub Actions** (`.github/workflows/ci.yml`): `pip install -e ".[dev]"` + pytest on push/PR.  
-- **Not in CI yet:** `make bench` / `verify-live` (need Docker)—good **future** improvement to mention honestly.
+- **GitHub Actions** (`.github/workflows/ci.yml`): pytest on push/PR; **`make bench`** RCA regression job (no Docker required).  
+- **Not in CI yet:** `verify-live` / full Compose E2E (slow; run locally with `make verify-live`).
 
 ### Infrastructure as code in this repo
 
@@ -639,11 +647,31 @@ A: Today: logs + `make verify-*`. Production: metrics on detector lag, consumer 
 
 ## Honest limits (say these confidently—it builds trust)
 
-- Single worker process (no HA).  
-- No auth on API ingest (demo only).  
+- Single worker process (no HA)—health on **:8085** is liveness, not autoscaling.  
+- **API keys are optional** (empty = open demo). Set **`INGEST_API_KEY`** / **`API_READ_KEY`** for hardened ingest/read split (Phase **K**).  
+- Static **`/ui`** does not send API keys; use open read mode locally or put UI behind an auth proxy in prod.  
 - Actions are **suggest-only**; OPA is optional.  
 - Ranker weights are tunable via **`BLAME_*`** env vars; **`feedback`** table + **`make feedback-report`** track top-1/top-3 accuracy (Phase **J**).  
-- Designed for **local Compose**, not multi-region production.
+- Designed for **local Compose**; see [K8s migration sketch](#k8s-migration-sketch-phase-k5) for a production path.
+
+---
+
+## K8s migration sketch (Phase K5)
+
+Compose → Kubernetes is mostly **one Deployment per service** plus shared config:
+
+| Compose service | K8s shape | Notes |
+|-----------------|-----------|--------|
+| **causeway-api** | Deployment + Service (ClusterIP) + Ingress | Mount secrets for `INGEST_API_KEY`, `API_READ_KEY`, `OPENAI_API_KEY`; HPA on CPU if read-heavy |
+| **causeway-worker** | Deployment (replicas=1 initially) | Same Kafka `group_id` → partition strategy before scaling replicas; liveness **:8085/healthz** |
+| **redpanda** | Strimzi / Redpanda Helm / managed Kafka | Keep topic names `signals.*` |
+| **postgres** | Cloud RDS or Zalando operator | Run `db/migrations/0001_init.sql` as job |
+| **victoria-metrics, vmalert, vmagent, otel-collector** | Helm charts (VM, kube-prometheus-stack, OTel operator) | PromQL and scrape configs from `deploy/` |
+| **meshgen** | Optional Job or staging namespace only | Not needed in prod if real apps emit traces |
+
+**Config:** ConfigMaps for `deploy/otel`, `deploy/vmalert/rules.yaml`; Secrets for DB DSN and API keys.  
+**Alertmanager** webhook URL → in-cluster `http://causeway-api:8000/ingest/alerts` with Bearer token matching `INGEST_API_KEY`.  
+**Observability of Causeway:** scrape worker `:8085`, API `/healthz`, Kafka consumer lag, detector interval drift.
 
 ---
 
@@ -660,6 +688,7 @@ A: Today: logs + `make verify-*`. Production: metrics on detector lag, consumer 
 | 2026-09-10 | Phase I: operator UI at /ui + GET .../timeline API. |
 | 2026-09-10 | Phase J: feedback report, /metrics/rca, blame env weights, UI feedback form. |
 | 2026-09-10 | Phase J+: `make demo-script`, UI copy ID + narrative panel, `payment_alert_latency` bench fixture + dedupe in replay. |
+| 2026-09-10 | Phase K: optional API keys, worker :8085 health, bench CI job, K8s migration sketch in docs. |
 
 ---
 

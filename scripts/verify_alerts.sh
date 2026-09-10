@@ -9,8 +9,13 @@ curl -sf "$API/healthz" >/dev/null
 echo "health_ok"
 
 echo "=== verify-alerts: POST sample Alertmanager webhook ==="
+INGEST_HDR=()
+if [[ -n "${INGEST_API_KEY:-}" ]]; then
+  INGEST_HDR=(-H "Authorization: Bearer ${INGEST_API_KEY}")
+fi
 resp=$(curl -sf -X POST "$API/ingest/alerts" \
   -H "Content-Type: application/json" \
+  "${INGEST_HDR[@]}" \
   --data-binary "@$FIXTURE")
 echo "$resp" | python3 -c "
 import sys, json
