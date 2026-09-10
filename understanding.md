@@ -166,6 +166,7 @@ Different kinds go to different Kafka topics (traces vs alerts).
 |-----------|----------------|
 | **frontend, payment-svc, …** | Fake app (Go), sends traces |
 | **otel-collector** | Converts traces to metrics |
+| **vmagent** | Scrapes mesh `/metrics` (requests, fault flag) into VM |
 | **victoria-metrics** | Stores metrics |
 | **vmalert + alertmanager** | Rules like “latency > X” → webhook to API |
 | **redpanda** | Kafka — message bus for signals |
@@ -224,6 +225,7 @@ Different kinds go to different Kafka topics (traces vs alerts).
 | **E** | Alerts from vmalert → API → Kafka; verify script; dedupe alert+detector | **Done** |
 | **F** | Slack on incident; action policy (OPA-ready); traffic helper | **Done (Slack needs webhook URL)** |
 | **G** | Saturation detector; error bench fixture; verify-live; GitHub CI | **Done** |
+| **H1** | vmagent scrapes mesh `/metrics` → VictoriaMetrics | **Done** |
 
 ---
 
@@ -231,7 +233,8 @@ Different kinds go to different Kafka topics (traces vs alerts).
 
 | Phase | Goal | Ideas |
 |-------|------|--------|
-| **H** | Richer observability | Scrape mesh `/metrics` into VM; pool/thread saturation |
+| **H2** | Use `meshgen_fault_active` in saturation detector | Fire when fault injected on service |
+| **H3** | `verify-alerts-live` under steady traffic | vmalert + Alertmanager path |
 | **I** | Operator UX | Incident list UI or Grafana dashboard |
 | **J** | Learning loop | Use `feedback` table to tune ranker weights |
 | **K** | Production hardening | API auth, multi-worker Kafka consumer group |
@@ -257,6 +260,7 @@ make action          # suggested diagnostic step + policy check
 make verify-alerts  # test Alertmanager webhook → API
 make verify-all     # test + bench + verify-alerts
 make traffic        # keep mesh busy for vmalert (120s default)
+make verify-mesh-metrics  # vmagent → VM (needs make up + ~30s scrape)
 make verify-live    # full E2E: fault + correlator + score (slow)
 ```
 
@@ -306,6 +310,7 @@ Validator checks every claim against IDs in the evidence pack (`EV-SIG-0001`, et
 | 2026-09-10 | Phases A–D done; detectors fixed; `make test` 9/9. |
 | 2026-09-10 | Phase E/F: dedupe, verify-alerts, traffic, Slack notify, action policy, OPA rego stub. |
 | 2026-09-10 | Phase G: saturation detector, checkout_errors bench, verify-live, GitHub CI, OPA compose profile. |
+| 2026-09-10 | Phase H1: vmagent scrapes meshgen `/metrics` into VictoriaMetrics. |
 
 ---
 

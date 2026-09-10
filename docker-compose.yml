@@ -54,6 +54,17 @@ services:
     ports:
       - "8428:8428"
 
+  vmagent:
+    image: victoriametrics/vmagent:v1.106.1
+    command:
+      - -promscrape.config=/etc/vmagent/scrape.yml
+      - -remoteWrite.url=http://victoria-metrics:8428/api/v1/write
+    volumes:
+      - ./deploy/vmagent/scrape.yml:/etc/vmagent/scrape.yml:ro
+    depends_on:
+      - victoria-metrics
+      - frontend
+
   causeway-api:
     <<: *causeway-dns
     build:

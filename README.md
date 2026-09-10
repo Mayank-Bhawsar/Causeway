@@ -23,6 +23,7 @@ Set `OPENAI_API_KEY` in `.env`. The API container must reach `api.openai.com` (f
 Optional: `SLACK_WEBHOOK_URL` in `.env` for incident notifications. Optional: `OPA_URL` for external policy (`deploy/opa/policy.rego`); start OPA with `docker compose --profile opa up -d opa`.
 
 ```bash
-make verify-all    # unit tests + bench + alert ingest
+make verify-all    # unit tests + bench + alert ingest + mesh metrics in VM
+make verify-mesh-metrics   # after make up, wait ~30s for first scrape
 make verify-live   # live mesh demo + top-1 score (~3 min, needs make up)
 ```

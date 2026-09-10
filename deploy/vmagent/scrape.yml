@@ -1,0 +1,24 @@
+# Scrape meshgen Prometheus text metrics into VictoriaMetrics via vmagent.
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+
+scrape_configs:
+  - job_name: meshgen
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - frontend:8080
+          - cart-svc:8080
+          - checkout-svc:8080
+          - catalog-svc:8080
+          - search-svc:8080
+          - payment-svc:8080
+          - order-svc:8080
+          - inventory-svc:8080
+          - pricing-svc:8080
+          - notification-svc:8080
+          - auth-svc:8080
+          - config-svc:8080
+        labels:
+          scrape: meshgen
